@@ -110,12 +110,8 @@ class Waymo2KITTI(object):
     def convert(self):
         """Convert action."""
         print('Start converting ...')
-        #self.convert_one(0)
-        #with multiprocessing.Pool(self.workers) as p:
-        #    with tqdm(len(self.tfrecord_pathnames)) as pbar:
-        #        for _ in p.imap_unordered(self.convert_one, range(len(self.tfrecord_pathnames))):
-        #            pbar.update()
-        tqdm(map(self.convert_one, range(len(self.tfrecord_pathnames))))
+        for i in tqdm(range(len(self.tfrecord_pathnames))):
+            self.convert_one(i)
         print('\nFinished ...')
 
     def convert_one(self, file_idx):
