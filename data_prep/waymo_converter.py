@@ -13,7 +13,7 @@ import os
 from glob import glob
 from os.path import exists, join
 from tqdm import tqdm
-
+from tqdm.contrib.concurrent import process_map
 import multiprocessing
 import numpy as np
 import tensorflow as tf
@@ -110,8 +110,7 @@ class Waymo2KITTI(object):
     def convert(self):
         """Convert action."""
         print('Start converting ...')
-        for i in tqdm(range(len(self.tfrecord_pathnames))):
-            self.convert_one(i)
+        process_map(self.convert_one, range(len(self.tfrecord_pathnames)), max_workers=self.workers)
         print('\nFinished ...')
 
     def convert_one(self, file_idx):

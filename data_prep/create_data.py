@@ -1,12 +1,15 @@
 import argparse
 import os
+import functools
 import waymo_converter as waymo
 import waymo_util
 from pathlib import Path
 import numpy as np
 import pickle
+import multiprocessing
 #from update_pkl_infos import update_pkl_infos
 from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
 import pathlib
 import box_np_ops
 
@@ -154,35 +157,14 @@ def create_waymo_info_file(data_path,
     with open(filename, 'wb') as pickle_file:
         pickle.dump(waymo_infos_test, pickle_file)
 
-def create_groundtruth_database(data_path,
-                                info_path=None,
-                                used_classes=None,
-                                database_save_path=None,
-                                db_info_save_path=None,
-                                relative_path=True,
-                                lidar_only=False,
-                                bev_only=False,
-                                coors_range=None):
-    root_path = pathlib.Path(data_path)
-    if info_path is None:
-        info_path = root_path / 'waymo_infos_train.pkl'
-    if database_save_path is None:
-        database_save_path = root_path / 'gt_database'
-    else:
-        database_save_path = pathlib.Path(database_save_path)
-    if db_info_save_path is None:
-        db_info_save_path = root_path / "waymo_dbinfos_train.pkl"
-    database_save_path.mkdir(parents=True, exist_ok=True)
-    with open(info_path, 'rb') as f:
-        waymo_infos = pickle.load(f)
-    all_db_infos = {}
-    if used_classes is None:
-        used_classes = list(waymo.get_classes())
-        #used_classes.pop(used_classes.index('DontCare'))
-    for name in used_classes:
-        all_db_infos[name] = []
-    group_counter = 0
-    for info in tqdm(waymo_infos):
+def create_single(info,
+                  root_path,
+                  used_classes=None,
+                  database_save_path=None,
+                  relative_path=True,
+                  lidar_only=False,
+                  bev_only=False,
+                  coors_range=None):
         velodyne_path = info['point_cloud']['velodyne_path']
         if relative_path:
             # velodyne_path = str(root_path / velodyne_path) + "_reduced"
@@ -248,13 +230,55 @@ def create_groundtruth_database(data_path,
 
                 local_group_id = group_ids[i]
                 # if local_group_id >= 0:
-                if local_group_id not in group_dict:
-                    group_dict[local_group_id] = group_counter
-                    group_counter += 1
-                db_info["group_id"] = group_dict[local_group_id]
+                #if local_group_id not in group_dict:
+                #    group_dict[local_group_id] = group_counter
+                #    group_counter += 1
+                #db_info["group_id"] = group_dict[local_group_id]
                 if "score" in annos:
                     db_info["score"] = annos["score"][i]
-                all_db_infos[names[i]].append(db_info)
+        return db_info
+
+def create_groundtruth_database(data_path,
+                                info_path=None,
+                                used_classes=None,
+                                database_save_path=None,
+                                db_info_save_path=None,
+                                relative_path=True,
+                                lidar_only=False,
+                                bev_only=False,
+                                workers=8,
+                                coors_range=None):
+    root_path = pathlib.Path(data_path)
+    if info_path is None:
+        info_path = root_path / 'waymo_infos_train.pkl'
+    if database_save_path is None:
+        database_save_path = root_path / 'gt_database'
+    else:
+        database_save_path = pathlib.Path(database_save_path)
+    if db_info_save_path is None:
+        db_info_save_path = root_path / "waymo_dbinfos_train.pkl"
+    database_save_path.mkdir(parents=True, exist_ok=True)
+    with open(info_path, 'rb') as f:
+        waymo_infos = pickle.load(f)
+    all_db_infos = {}
+    if used_classes is None:
+        used_classes = list(waymo.get_classes())
+        #used_classes.pop(used_classes.index('DontCare'))
+    for name in used_classes:
+        all_db_infos[name] = []
+    #group_counter = 0
+    single = functools.partial(create_single, root_path=root_path,
+                  used_classes=used_classes,
+                  database_save_path=database_save_path,
+                  relative_path=relative_path,
+                  lidar_only=lidar_only,
+                  bev_only=bev_only,
+                  coors_range=coors_range)
+    results = process_map(single, waymo_infos, max_workers=workers)
+    for db_info in results:
+        all_db_infos[db_info['name']].append(db_info)
+            
+        
     for k, v in all_db_infos.items():
         print(f"load {len(v)} {k} database infos")
 
