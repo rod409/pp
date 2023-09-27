@@ -292,5 +292,13 @@ def anno_to_rbboxes(anno):
     rbboxes = np.concatenate([loc, dims, rots[..., np.newaxis]], axis=1)
     return rbboxes
 
+def main(args):
+    waymo_data_prep(args.waymo_root, 'waymo', '1.0', args.waymo_root, args.workers)
+
 if __name__ == '__main__':
-    waymo_data_prep('/home/rod/Documents/research/large_assets/waymo', 'waymo', '1.0', '/home/rod/Documents/research/large_assets/waymo', 4)
+    parser = argparse.ArgumentParser(description='Configuration Parameters')
+    parser.add_argument('--waymo_root', help='your data root for the waymo dataset', required=True)
+    parser.add_argument('--workers', default=4, help='number of processes')
+    args = parser.parse_args()
+    main(args)
+    
