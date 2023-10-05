@@ -299,7 +299,7 @@ def main(args):
     saved_submit_path = os.path.join(saved_path, 'submit')
     os.makedirs(saved_submit_path, exist_ok=True)
 
-    pcd_limit_range = np.array([-76.8, -51.2, -2, 76.8, 51.2, 4.0], dtype=np.float32)
+    pcd_limit_range = np.array([-74.88, -74.88, -2, 74.88, 74.88, 4], dtype=np.float32)
 
     model.eval()
     with torch.no_grad():
