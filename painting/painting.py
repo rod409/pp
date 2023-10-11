@@ -3,25 +3,37 @@ import numpy as np
 import torch
 from torchvision import transforms
 from PIL import Image
-import painting.calibration_waymo as calibration_waymo
+import calibration_waymo
 import copy
+import sys
+from tqdm import tqdm
+sys.path.append('..')
+import deeplabv3plus.network as network
+import argparse
 #fix segmentation network
-TRAINING_PATH = "../data/waymo/training/"
 
 
 class Painter:
-    def __init__(self):
-        self.root_split_path = TRAINING_PATH
-        self.save_path = TRAINING_PATH + "painted_lidar/"
+    def __init__(self, args):
+        self.root_split_path = args.training_path
+        self.save_path = args.training_path + "painted_lidar/"
         if not os.path.exists(self.save_path):
             os.mkdir(self.save_path)
 
-        self.seg_net_index = seg_net_index
+        self.seg_net_index = 0
         self.model = None
         print(f'Using Segmentation Network -- deeplabv3plus')
-        config_file = './mmseg/configs/deeplabv3plus/deeplabv3plus_r101-d8_512x1024_80k_cityscapes.py'
-        checkpoint_file = '../checkpoints/deeplabv3plus_r101-d8_512x1024_80k_cityscapes_20200606_114143-068fcfe9.pth'
-        self.model = init_segmentor(config_file, checkpoint_file, device='cuda:0') # TODO edit here if you want to use different device
+        #config_file = './mmseg/configs/deeplabv3plus/deeplabv3plus_r101-d8_512x1024_80k_cityscapes.py'
+        checkpoint_file = '/home/rod/Documents/research/pp/deeplabv3plus/checkpoints/latest_deeplabv3plus_resnet50_cityscapes_os16.pth'
+        model = network.modeling.__dict__['deeplabv3plus_resnet50'](num_classes=19, output_stride=16)
+        checkpoint = torch.load(checkpoint_file, map_location=torch.device('cpu'))
+        model.load_state_dict(checkpoint["model_state"])
+        model = torch.nn.DataParallel(model)
+        #model.load_state_dict(torch.load(checkpoint_file))
+        model.eval()
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model.to(device)
+        self.model = model
 
         
     def get_lidar(self, idx):
@@ -36,7 +48,7 @@ class Painter:
         '''
         output_reassign_softmax = None
         if self.seg_net_index == 0:
-            filename = self.root_split_path + left + ('%s.png' % idx)
+            filename = self.root_split_path + left + ('%s.jpg' % idx)
             input_image = Image.open(filename)
             preprocess = transforms.Compose([
                 transforms.ToTensor(),
@@ -51,7 +63,7 @@ class Painter:
                 input_batch = input_batch.to('cuda')
 
             with torch.no_grad():
-                output = self.model(input_batch)['out'][0]
+                output = self.model(input_batch)[0]
 
             output_permute = output.permute(1,2,0)
             output_probability,output_predictions =  output_permute.max(2)
@@ -194,7 +206,7 @@ class Painter:
         augmented_lidar[true_where_point_on_both_0_2, -class_scores[0].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_0_2, -class_scores[0].shape[2]:]
         augmented_lidar[true_where_point_on_both_1_3, -class_scores[1].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_1_3, -class_scores[1].shape[2]:]
         augmented_lidar[true_where_point_on_both_2_4, -class_scores[2].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_2_4, -class_scores[2].shape[2]:]
-        augmented_lidar = augmented_lidar[true_where_point_on_img]
+        #augmented_lidar = augmented_lidar[true_where_point_on_img]#remove
         #augmented_lidar = self.create_cyclist(augmented_lidar)
         return augmented_lidar
 
@@ -222,5 +234,8 @@ class Painter:
             np.save(self.save_path + ("%s.npy" % sample_idx), points)
 
 if __name__ == '__main__':
-    painter = Painter()
+    parser = argparse.ArgumentParser(description='Configuration Parameters')
+    parser.add_argument('--training_path', help='your data root for the training data', required=True)
+    args = parser.parse_args()
+    painter = Painter(args)
     painter.run()
