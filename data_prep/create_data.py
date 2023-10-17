@@ -165,6 +165,7 @@ def create_single(info,
                   lidar_only=False,
                   bev_only=False,
                   coors_range=None):
+        db_info = {}
         velodyne_path = info['point_cloud']['velodyne_path']
         if relative_path:
             # velodyne_path = str(root_path / velodyne_path) + "_reduced"
@@ -276,7 +277,8 @@ def create_groundtruth_database(data_path,
                   coors_range=coors_range)
     results = process_map(single, waymo_infos, max_workers=workers)
     for db_info in results:
-        all_db_infos[db_info['name']].append(db_info)
+        if 'name' in db_info: 
+            all_db_infos[db_info['name']].append(db_info)
             
         
     for k, v in all_db_infos.items():
@@ -301,4 +303,4 @@ if __name__ == '__main__':
     parser.add_argument('--workers', default=4, help='number of processes')
     args = parser.parse_args()
     main(args)
-    
+
