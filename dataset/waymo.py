@@ -70,8 +70,8 @@ class Waymo(Dataset):
                 scale_ratio_range=[0.95, 1.05],
                 translation_std=[0, 0, 0]
                 ), 
-            point_range_filter=[0, -39.68, -3, 69.12, 39.68, 1],
-            object_range_filter=[0, -39.68, -3, 69.12, 39.68, 1]             
+            point_range_filter=[-74.88, -74.88, -2, 74.88, 74.88, 4], 
+            object_range_filter=[-74.88, -74.88, -2, 74.88, 74.88, 4]
         )
 
     def remove_dont_care(self, annos_info):

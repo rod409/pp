@@ -163,3 +163,4 @@ cython_debug/
 *.pyc
 pillar_logs/
 ops/build
+results/

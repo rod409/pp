@@ -29,7 +29,7 @@ def dbsample(CLASSES, data_root, data_dict, db_sampler, sample_groups):
         sampled_num = v - np.sum(gt_names == name)
         if sampled_num <= 0:
             continue
-        print('samnum: ' + str(sampled_num))
+        #print('samnum: ' + str(sampled_num))
         # 2. sample databases bboxes
         sampled_cls_list = db_sampler[name].sample(sampled_num)
         if len(sampled_cls_list) < 1:
@@ -65,6 +65,8 @@ def dbsample(CLASSES, data_root, data_dict, db_sampler, sample_groups):
         
     # merge sampled database
     # remove raw points in sampled_bboxes firstly
+    if len(sampled_bboxes) < 1:
+        return data_dict
     pts = remove_pts_in_bboxes(pts, np.stack(sampled_bboxes, axis=0))
     # pts = np.concatenate([pts, np.concatenate(sampled_pts, axis=0)], axis=0)
     pts = np.concatenate([np.concatenate(sampled_pts, axis=0), pts], axis=0)
