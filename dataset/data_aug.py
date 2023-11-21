@@ -320,12 +320,12 @@ def data_augment(CLASSES, data_root, data_dict, data_aug_config):
     '''
 
     # 1. sample databases and merge into the data 
-    db_sampler_config = data_aug_config['db_sampler']
-    data_dict = dbsample(CLASSES,
-                         data_root,
-                         data_dict, 
-                         db_sampler=db_sampler_config['db_sampler'],
-                         sample_groups=db_sampler_config['sample_groups'])
+    #db_sampler_config = data_aug_config['db_sampler']
+    #data_dict = dbsample(CLASSES,
+    #                     data_root,
+    #                     data_dict, 
+    #                     db_sampler=db_sampler_config['db_sampler'],
+    #                     sample_groups=db_sampler_config['sample_groups'])
     # 2. object noise
     object_noise_config = data_aug_config['object_noise']
     data_dict = object_noise(data_dict, 
