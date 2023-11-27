@@ -52,19 +52,18 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
     for id in range(len(gt_results)):
         gt_result = gt_results[id]['annos']
         det_result = det_results[gt_results[id]['image']['image_idx']]
-
         # 1.1, 2d bboxes iou
         gt_bboxes2d = gt_result['bbox'].astype(np.float32)
         det_bboxes2d = det_result['bbox'].astype(np.float32)
-        iou2d_v = iou2d(torch.from_numpy(gt_bboxes2d).cuda(), torch.from_numpy(det_bboxes2d).cuda())
+        iou2d_v = iou2d(torch.from_numpy(gt_bboxes2d), torch.from_numpy(det_bboxes2d))
         ious['bbox_2d'].append(iou2d_v.cpu().numpy())
 
         # 1.2, bev iou
         gt_location = gt_result['location'].astype(np.float32)
         gt_dimensions = gt_result['dimensions'].astype(np.float32)
         gt_rotation_y = gt_result['rotation_y'].astype(np.float32)
-        det_location = det_result['location'].astype(np.float32)
-        det_dimensions = det_result['dimensions'].astype(np.float32)
+        det_location = det_result['location'].astype(np.float32).reshape(-1, 3)
+        det_dimensions = det_result['dimensions'].astype(np.float32).reshape(-1, 3)
         det_rotation_y = det_result['rotation_y'].astype(np.float32)
 
         gt_bev = np.concatenate([gt_location[:, [0, 2]], gt_dimensions[:, [0, 2]], gt_rotation_y[:, None]], axis=-1)
@@ -131,7 +130,10 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
 
                     # 1.2 det bbox property
                     cur_det_names = det_result['name']
-                    cur_det_heights = det_result['bbox'][:, 3] - det_result['bbox'][:, 1]
+                    if len(cur_det_names) == 0:
+                        cur_det_heights = np.empty_like(det_result['bbox'])
+                    else:
+                        cur_det_heights = det_result['bbox'][:, 3] - det_result['bbox'][:, 1]
                     det_ignores = []
                     for j, cur_det_name in enumerate(cur_det_names):
                         if cur_det_heights[j] < MIN_HEIGHT[difficulty]:

@@ -67,6 +67,10 @@ def main(args):
         print('=' * 20, epoch, '=' * 20)
         train_step, val_step = 0, 0
         for i, data_dict in enumerate(tqdm(train_dataloader)):
+            #if str(data_dict['batched_img_info'][0]['image_idx']) != '60019':
+            #    continue
+            #if i >= 74:
+            #    print(i)
             if not args.no_cuda:
                 # move the tensors to the cuda
                 for key in data_dict:
@@ -135,8 +139,8 @@ def main(args):
         if (epoch + 1) % args.ckpt_freq_epoch == 0:
             torch.save(pointpillars.state_dict(), os.path.join(saved_ckpt_path, f'epoch_{epoch+1}.pth'))
 
-        if epoch % 2 == 0:
-            continue
+        #if epoch % 2 == 0:
+        #    continue
         pointpillars.eval()
         with torch.no_grad():
             for i, data_dict in enumerate(tqdm(val_dataloader)):

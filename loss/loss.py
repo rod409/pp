@@ -46,11 +46,15 @@ class Loss(nn.Module):
              (1 - self.alpha) * bbox_cls_pred_sigmoid.pow(self.gamma) * (1 - batched_labels) # (n, 3)
         cls_loss = F.binary_cross_entropy(bbox_cls_pred_sigmoid, batched_labels, reduction='none')
         cls_loss = cls_loss * weights
-        cls_loss = cls_loss.sum() / num_cls_pos
+        #cls_loss = cls_loss.sum() / (num_cls_pos+torch.finfo().eps)
+        cls_loss = cls_loss.mean()
         
         # 2. regression loss
         reg_loss = self.smooth_l1_loss(bbox_pred, batched_bbox_reg)
-        reg_loss = reg_loss.sum() / reg_loss.size(0)
+        if reg_loss.numel() == 0:
+            reg_loss = reg_loss.sum()*0
+        else:
+            reg_loss = reg_loss.sum() / reg_loss.size(0)
 
         # 3. direction cls loss
         dir_cls_loss = self.dir_cls(bbox_dir_cls_pred, batched_dir_labels)

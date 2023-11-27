@@ -151,9 +151,13 @@ def anchor_target(batched_anchors, batched_gt_bboxes, batched_gt_labels, assigne
             pos_iou_thr, neg_iou_thr, min_iou_thr = \
             assigner['pos_iou_thr'], assigner['neg_iou_thr'], assigner['min_iou_thr']
             cur_anchors = anchors[:, :, j, :, :].reshape(-1, 7)
-            overlaps = iou2d_nearest(gt_bboxes, cur_anchors) 
-            max_overlaps, max_overlaps_idx = torch.max(overlaps, dim=0)
-            gt_max_overlaps, _ = torch.max(overlaps, dim=1)
+            overlaps = iou2d_nearest(gt_bboxes, cur_anchors)
+            if overlaps.shape[0] == 0:
+                max_overlaps = torch.zeros_like(cur_anchors[:, 0], dtype=cur_anchors.dtype)
+                max_overlaps_idx = torch.zeros_like(cur_anchors[:, 0], dtype=torch.long)
+            else:    
+                max_overlaps, max_overlaps_idx = torch.max(overlaps, dim=0)
+                gt_max_overlaps, _ = torch.max(overlaps, dim=1)
 
             assigned_gt_inds = -torch.ones_like(cur_anchors[:, 0], dtype=torch.long)
             # a. negative anchors

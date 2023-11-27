@@ -16,7 +16,8 @@ def boxes_overlap_bev(boxes_a, boxes_b):
     """
     ans_overlap = boxes_a.new_zeros(
         torch.Size((boxes_a.shape[0], boxes_b.shape[0])))
-
+    if ans_overlap.size(0)*ans_overlap.size(1) == 0:
+        return ans_overlap
     boxes_overlap_bev_gpu(boxes_a.contiguous(), boxes_b.contiguous(), ans_overlap)
 
     return ans_overlap
@@ -35,6 +36,8 @@ def boxes_iou_bev(boxes_a, boxes_b):
     ans_iou = boxes_a.new_zeros(
         torch.Size((boxes_a.shape[0], boxes_b.shape[0])))
 
+    if ans_iou.size(0)*ans_iou.size(1) == 0:
+        return ans_iou
     boxes_iou_bev_gpu(boxes_a.contiguous(), boxes_b.contiguous(), ans_iou)
 
     return ans_iou
