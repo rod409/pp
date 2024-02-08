@@ -102,6 +102,7 @@ class Waymo(Dataset):
         velodyne_path = data_info['point_cloud']['velodyne_path']
         pts_path = os.path.join(self.data_root, velodyne_path)
         pts = read_points(pts_path, 6)
+        pts = pts[:,:5]
         
         # calib input: for bbox coordinates transformation between Camera and Lidar.
         # because

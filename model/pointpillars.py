@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from model.anchors import Anchors, anchor_target, anchors2bboxes
 from ops import Voxelization, nms_cuda
 from utils import limit_period
-
+import math
 
 class PillarLayer(nn.Module):
     def __init__(self, voxel_size, point_cloud_range, max_num_points, max_voxels):
@@ -51,8 +51,8 @@ class PillarEncoder(nn.Module):
         self.vx, self.vy = voxel_size[0], voxel_size[1]
         self.x_offset = voxel_size[0] / 2 + point_cloud_range[0]
         self.y_offset = voxel_size[1] / 2 + point_cloud_range[1]
-        self.x_l = int((point_cloud_range[3] - point_cloud_range[0]) / voxel_size[0])
-        self.y_l = int((point_cloud_range[4] - point_cloud_range[1]) / voxel_size[1])
+        self.x_l = math.ceil((point_cloud_range[3] - point_cloud_range[0]) / voxel_size[0])
+        self.y_l = math.ceil((point_cloud_range[4] - point_cloud_range[1]) / voxel_size[1])
 
         self.conv = nn.Conv1d(in_channel, out_channel, 1, bias=False)
         self.bn = nn.BatchNorm1d(out_channel, eps=1e-3, momentum=0.01)
@@ -221,7 +221,7 @@ class PointPillars(nn.Module):
     def __init__(self,
                  nclasses=3, 
                  voxel_size=[0.32, 0.32, 6],
-                 point_cloud_range=[-75.52, -75.52, -2, 75.52, 75.52, 4],
+                 point_cloud_range=[-74.88, -74.88, -2, 74.88, 74.88, 4],
                  max_num_points=20,
                  max_voxels=(32000, 32000)):
         super().__init__()
@@ -232,11 +232,12 @@ class PointPillars(nn.Module):
                                         max_voxels=max_voxels)
         self.pillar_encoder = PillarEncoder(voxel_size=voxel_size, 
                                             point_cloud_range=point_cloud_range, 
-                                            in_channel=11, #change for painting
+                                            in_channel=10, #change for painting
                                             out_channel=64)
         self.backbone = Backbone(in_channel=64, 
                                  out_channels=[64, 128, 256], 
-                                 layer_nums=[3, 5, 5])
+                                 layer_nums=[3, 5, 5],
+                                 layer_strides=[1,2,2])
         self.neck = Neck(in_channels=[64, 128, 256], 
                          upsample_strides=[1, 2, 4], 
                          out_channels=[128, 128, 128])
@@ -245,8 +246,8 @@ class PointPillars(nn.Module):
         # anchors
         ranges = [[-74.88, -74.88, -0.0345, 74.88, 74.88, -0.0345],
                     [-74.88, -74.88, 0, 74.88, 74.88, 0],
-                    [-74.88, -74.88, -0.1188, -74.88, -74.88, -0.1188]]
-        sizes = [[0.91, .84, 1.74], [1.81, .84, 1.77], [4.73, 0.84, 1.74]]
+                    [-74.88, -74.88, -0.1188, 74.88, 74.88, -0.1188]]
+        sizes = [[0.84, .91, 1.74], [.84, 1.81, 1.77], [2.08, 4.73, 1.77]]
         rotations=[0, 1.57]
         self.anchors_generator = Anchors(ranges=ranges, 
                                          sizes=sizes, 
@@ -254,16 +255,16 @@ class PointPillars(nn.Module):
         
         # train
         self.assigners = [
-            {'pos_iou_thr': 0.5, 'neg_iou_thr': 0.35, 'min_iou_thr': 0.35},
-            {'pos_iou_thr': 0.5, 'neg_iou_thr': 0.35, 'min_iou_thr': 0.35},
-            {'pos_iou_thr': 0.6, 'neg_iou_thr': 0.45, 'min_iou_thr': 0.45},
+            {'pos_iou_thr': 0.5, 'neg_iou_thr': 0.3, 'min_iou_thr': 0.3},
+            {'pos_iou_thr': 0.5, 'neg_iou_thr': 0.3, 'min_iou_thr': 0.3},
+            {'pos_iou_thr': 0.55, 'neg_iou_thr': 0.4, 'min_iou_thr': 0.4},
         ]
 
         # val and test
-        self.nms_pre = 100
-        self.nms_thr = 0.01
+        self.nms_pre = 4096
+        self.nms_thr = 0.25
         self.score_thr = 0.1
-        self.max_num = 50
+        self.max_num = 500
 
     def get_predicted_bboxes_single(self, bbox_cls_pred, bbox_pred, bbox_dir_cls_pred, anchors):
         '''

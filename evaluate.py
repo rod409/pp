@@ -92,7 +92,7 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
             eval_ap_results[cls] = []
             eval_aos_results[cls] = []
             CLS_MIN_IOU = MIN_IOUS[cls][e_ind]
-            for difficulty in [0, 1, 2]:
+            for difficulty in [0]:
                 # 1. bbox property
                 total_gt_ignores, total_det_ignores, total_dc_bboxes, total_scores = [], [], [], []
                 total_gt_alpha, total_det_alpha = [], []
@@ -257,14 +257,14 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
         print(f'=========={eval_type.upper()}==========')
         print(f'=========={eval_type.upper()}==========', file=f)
         for k, v in eval_ap_results.items():
-            print(f'{k} AP@{MIN_IOUS[k][e_ind]}: {v[0]:.4f} {v[1]:.4f} {v[2]:.4f}')
-            print(f'{k} AP@{MIN_IOUS[k][e_ind]}: {v[0]:.4f} {v[1]:.4f} {v[2]:.4f}', file=f)
+            print(f'{k} AP@{MIN_IOUS[k][e_ind]}: {v[0]:.4f}')
+            print(f'{k} AP@{MIN_IOUS[k][e_ind]}: {v[0]:.4f}', file=f)
         if eval_type == 'bbox_2d':
             print(f'==========AOS==========')
             print(f'==========AOS==========', file=f)
             for k, v in eval_aos_results.items():
-                print(f'{k} AOS@{MIN_IOUS[k][e_ind]}: {v[0]:.4f} {v[1]:.4f} {v[2]:.4f}')
-                print(f'{k} AOS@{MIN_IOUS[k][e_ind]}: {v[0]:.4f} {v[1]:.4f} {v[2]:.4f}', file=f)
+                print(f'{k} AOS@{MIN_IOUS[k][e_ind]}: {v[0]:.4f}')
+                print(f'{k} AOS@{MIN_IOUS[k][e_ind]}: {v[0]:.4f}', file=f)
         
         overall_results[eval_type] = np.mean(list(eval_ap_results.values()), 0)
         if eval_type == 'bbox_2d':
@@ -273,8 +273,8 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
     print(f'\n==========Overall==========')
     print(f'\n==========Overall==========', file=f)
     for k, v in overall_results.items():
-        print(f'{k} AP: {v[0]:.4f} {v[1]:.4f} {v[2]:.4f}')
-        print(f'{k} AP: {v[0]:.4f} {v[1]:.4f} {v[2]:.4f}', file=f)
+        print(f'{k} AP: {v[0]:.4f}')
+        print(f'{k} AP: {v[0]:.4f}', file=f)
     f.close()
     
 

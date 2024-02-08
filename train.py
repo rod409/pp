@@ -67,10 +67,6 @@ def main(args):
         print('=' * 20, epoch, '=' * 20)
         train_step, val_step = 0, 0
         for i, data_dict in enumerate(tqdm(train_dataloader)):
-            #if str(data_dict['batched_img_info'][0]['image_idx']) != '60019':
-            #    continue
-            #if i >= 74:
-            #    print(i)
             if not args.no_cuda:
                 # move the tensors to the cuda
                 for key in data_dict:
