@@ -196,7 +196,7 @@ class Painter:
         point_scores_3 = class_scores[3][points_projected_on_mask_3[:, 1], points_projected_on_mask_3[:, 0]].reshape(-1, class_scores[3].shape[2])
         point_scores_4 = class_scores[4][points_projected_on_mask_4[:, 1], points_projected_on_mask_4[:, 0]].reshape(-1, class_scores[4].shape[2])
         #augmented_lidar = np.concatenate((lidar_raw[true_where_point_on_img], point_scores), axis=1)
-        augmented_lidar = np.concatenate((lidar_raw[:,:4], np.zeros((lidar_raw.shape[0], class_scores[1].shape[2]))), axis=1)
+        augmented_lidar = np.concatenate((lidar_raw[:,:5], np.zeros((lidar_raw.shape[0], class_scores[1].shape[2]))), axis=1)
         augmented_lidar[true_where_point_on_img_0, -class_scores[0].shape[2]:] += point_scores_0
         augmented_lidar[true_where_point_on_img_1, -class_scores[1].shape[2]:] += point_scores_1
         augmented_lidar[true_where_point_on_img_2, -class_scores[2].shape[2]:] += point_scores_2
@@ -212,7 +212,7 @@ class Painter:
 
     def run(self):
         image_files = os.listdir(self.root_split_path + 'image_0')
-        for img_file in tqdm(image_files[:2]):
+        for img_file in tqdm(image_files):
             
             sample_idx = os.path.splitext(img_file)[0]
             # points: N * 4(x, y, z, r)

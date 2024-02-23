@@ -280,7 +280,7 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
 
 def main(args):
     val_dataset = Waymo(data_root=args.data_root,
-                        split='val')
+                        split='val', painted=args.painted)
     val_dataloader = get_dataloader(dataset=val_dataset, 
                                     batch_size=args.batch_size, 
                                     num_workers=args.num_workers,
@@ -289,10 +289,10 @@ def main(args):
     LABEL2CLASSES = {v:k for k, v in CLASSES.items()}
 
     if not args.no_cuda:
-        model = PointPillars(nclasses=args.nclasses).cuda()
+        model = PointPillars(nclasses=args.nclasses, painted=args.painted).cuda()
         model.load_state_dict(torch.load(args.ckpt))
     else:
-        model = PointPillars(nclasses=args.nclasses)
+        model = PointPillars(nclasses=args.nclasses, painted=args.painted)
         model.load_state_dict(
             torch.load(args.ckpt, map_location=torch.device('cpu')))
     
@@ -381,6 +381,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--nclasses', type=int, default=3)
+    parser.add_argument('--painted', action='store_true', help='if using painted lidar points')
     parser.add_argument('--no_cuda', action='store_true',
                         help='whether to use cuda')
     args = parser.parse_args()

@@ -41,13 +41,18 @@ class Waymo(Dataset):
         'Car': 2
         }
 
-    def __init__(self, data_root, split, pts_prefix='velodyne_reduced'):
+    def __init__(self, data_root, split, pts_prefix='velodyne_reduced', painted=False):
         assert split in ['train', 'val', 'trainval', 'test']
         self.data_root = data_root
         self.split = split
         self.pts_prefix = pts_prefix
-        self.data_infos = read_pickle(os.path.join(data_root, f'waymo_infos_{split}.pkl'))
+        if painted:
+            info_file = f'painted_waymo_infos_{split}.pkl'
+        else:
+            info_file = f'waymo_infos_{split}.pkl'
+        self.data_infos = read_pickle(os.path.join(data_root, info_file))
         self.sorted_ids = range(len(self.data_infos))
+        self.painted = painted
         db_infos = read_pickle(os.path.join(data_root, 'waymo_dbinfos_train.pkl'))
         db_infos = self.filter_db(db_infos)
 
@@ -101,8 +106,11 @@ class Waymo(Dataset):
         # point cloud input
         velodyne_path = data_info['point_cloud']['velodyne_path']
         pts_path = os.path.join(self.data_root, velodyne_path)
-        pts = read_points(pts_path, 6)
-        pts = pts[:,:5]
+        if self.painted:
+            pts = read_points(pts_path, 9)
+        else:
+            pts = read_points(pts_path, 6)
+            pts = pts[:,:5]
         
         # calib input: for bbox coordinates transformation between Camera and Lidar.
         # because

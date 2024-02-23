@@ -23,9 +23,9 @@ def save_summary(writer, loss_dict, global_step, tag, lr=None, momentum=None):
 def main(args):
     setup_seed()
     train_dataset = Waymo(data_root=args.data_root,
-                          split='train')
+                          split='train', painted=args.painted)
     val_dataset = Waymo(data_root=args.data_root,
-                        split='val')
+                        split='val', painted=args.painted)
     print(args.num_workers)
     train_dataloader = get_dataloader(dataset=train_dataset, 
                                       batch_size=args.batch_size, 
@@ -37,9 +37,9 @@ def main(args):
                                     shuffle=False)
 
     if not args.no_cuda:
-        pointpillars = PointPillars(nclasses=args.nclasses).cuda()
+        pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted).cuda()
     else:
-        pointpillars = PointPillars(nclasses=args.nclasses)
+        pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted)
     loss_func = Loss()
 
     max_iters = len(train_dataloader) * args.max_epoch
@@ -209,6 +209,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_epoch', type=int, default=160)
     parser.add_argument('--log_freq', type=int, default=8)
     parser.add_argument('--ckpt_freq_epoch', type=int, default=20)
+    parser.add_argument('--painted', action='store_true', help='if using painted lidar points')
     parser.add_argument('--no_cuda', action='store_true',
                         help='whether to use cuda')
     args = parser.parse_args()

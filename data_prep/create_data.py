@@ -24,7 +24,8 @@ def waymo_data_prep(root_path,
                     version,
                     out_dir,
                     workers,
-                    max_sweeps=5):
+                    max_sweeps=5,
+                    painted=False):
     """Prepare the info file for waymo dataset.
 
     Args:
@@ -59,7 +60,7 @@ def waymo_data_prep(root_path,
     # Generate waymo infos
     out_dir = os.path.join(out_dir, 'kitti_format')
     create_waymo_info_file(
-        out_dir, info_prefix, max_sweeps=max_sweeps, workers=workers)
+        out_dir, info_prefix, max_sweeps=max_sweeps, workers=workers, painted=painted)
     info_train_path = os.path.join(out_dir, f'{info_prefix}_infos_train.pkl')
     info_val_path = os.path.join(out_dir, f'{info_prefix}_infos_val.pkl')
     info_trainval_path = os.path.join(out_dir, f'{info_prefix}_infos_trainval.pkl')
@@ -76,14 +77,15 @@ def waymo_data_prep(root_path,
         relative_path=False,
         with_mask=False,
         num_worker=workers).create()'''
-    create_groundtruth_database(out_dir)
+    create_groundtruth_database(out_dir, painted=painted)
 
 def create_waymo_info_file(data_path,
                            pkl_prefix='waymo',
                            save_path=None,
                            relative_path=True,
                            max_sweeps=5,
-                           workers=8):
+                           workers=8,
+                           painted=False):
     """Create info file of waymo dataset.
 
     Given the raw data, generate its related info file in pkl format.
@@ -117,7 +119,8 @@ def create_waymo_info_file(data_path,
         pose=True,
         relative_path=relative_path,
         max_sweeps=max_sweeps,
-        num_worker=workers)
+        num_worker=workers,
+        painted=painted)
     waymo_infos_gatherer_test = waymo_util.WaymoInfoGatherer(
         data_path,
         training=False,
@@ -127,7 +130,8 @@ def create_waymo_info_file(data_path,
         pose=True,
         relative_path=relative_path,
         max_sweeps=max_sweeps,
-        num_worker=workers)
+        num_worker=workers,
+        painted=painted)
     '''num_points_in_gt_calculater = _NumPointsInGTCalculater(
         data_path,
         relative_path,
@@ -248,7 +252,8 @@ def create_groundtruth_database(data_path,
                                 lidar_only=False,
                                 bev_only=False,
                                 workers=8,
-                                coors_range=None):
+                                coors_range=None,
+                                painted=False):
     root_path = pathlib.Path(data_path)
     if info_path is None:
         info_path = root_path / 'waymo_infos_train.pkl'
@@ -295,12 +300,16 @@ def anno_to_rbboxes(anno):
     return rbboxes
 
 def main(args):
-    waymo_data_prep(args.waymo_root, 'waymo', '1.0', args.waymo_root, args.workers)
+    prefix = 'waymo'
+    if args.painted:
+        prefix = 'painted_waymo'
+    waymo_data_prep(args.waymo_root, prefix, '1.0', args.waymo_root, args.workers, painted=args.painted)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Configuration Parameters')
     parser.add_argument('--waymo_root', help='your data root for the waymo dataset', required=True)
     parser.add_argument('--workers', default=4, help='number of processes')
+    parser.add_argument('--painted', action='store_true', help='if using painted lidar points')
     args = parser.parse_args()
     main(args)
 

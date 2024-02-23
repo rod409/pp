@@ -17,9 +17,11 @@ def write_pickle(results, file_path):
 
 def read_points(file_path, dim=4):
     suffix = os.path.splitext(file_path)[1] 
-    assert suffix in ['.bin', '.ply']
+    assert suffix in ['.bin', '.ply', '.npy']
     if suffix == '.bin':
         return np.fromfile(file_path, dtype=np.float32).reshape(-1, dim)
+    elif suffix == '.npy':
+        return np.load(file_path).astype(np.float32)
     else:
         raise NotImplementedError
 

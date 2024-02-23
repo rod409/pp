@@ -79,8 +79,14 @@ def get_velodyne_path(idx,
                       training=True,
                       relative_path=True,
                       exist_check=True,
-                      use_prefix_id=False):
-    return get_kitti_info_path(idx, prefix, 'velodyne', '.bin', training,
+                      use_prefix_id=False,
+                      painted=False):
+    lidar_folder = 'velodyne'
+    ext = '.bin'
+    if painted:
+        lidar_folder = 'painted_lidar'
+        ext = '.npy'
+    return get_kitti_info_path(idx, prefix, lidar_folder, ext, training,
                                relative_path, exist_check, use_prefix_id)
 
 
@@ -246,6 +252,7 @@ class WaymoInfoGatherer:
                  num_worker=8,
                  relative_path=True,
                  with_imageshape=True,
+                 painted = False,
                  max_sweeps=5) -> None:
         self.path = path
         self.training = training
@@ -258,11 +265,15 @@ class WaymoInfoGatherer:
         self.relative_path = relative_path
         self.with_imageshape = with_imageshape
         self.max_sweeps = max_sweeps
+        self.painted = painted
 
     def gather_single(self, idx):
         root_path = Path(self.path)
         info = {}
-        pc_info = {'num_features': 6}
+        if self.painted:
+            pc_info = {'num_features': 9}
+        else:
+            pc_info = {'num_features': 6}
         calib_info = {}
 
         image_info = {'image_idx': idx}
@@ -273,7 +284,8 @@ class WaymoInfoGatherer:
                 self.path,
                 self.training,
                 self.relative_path,
-                use_prefix_id=True)
+                use_prefix_id=True,
+                painted = self.painted)
         with open(
                 get_timestamp_path(
                     idx,
@@ -421,7 +433,8 @@ class WaymoInfoGatherer:
                 self.training,
                 self.relative_path,
                 exist_check=False,
-                use_prefix_id=True)
+                use_prefix_id=True,
+                painted = self.painted)
             if_prev_exists = osp.exists(
                 Path(self.path) / prev_info['velodyne_path'])
             if if_prev_exists:

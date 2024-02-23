@@ -223,16 +223,21 @@ class PointPillars(nn.Module):
                  voxel_size=[0.32, 0.32, 6],
                  point_cloud_range=[-74.88, -74.88, -2, 74.88, 74.88, 4],
                  max_num_points=20,
-                 max_voxels=(32000, 32000)):
+                 max_voxels=(32000, 32000),
+                 painted=False):
         super().__init__()
         self.nclasses = nclasses
         self.pillar_layer = PillarLayer(voxel_size=voxel_size, 
                                         point_cloud_range=point_cloud_range, 
                                         max_num_points=max_num_points, 
                                         max_voxels=max_voxels)
+        if painted:
+            pillar_channel = 14
+        else:
+            pillar_channel = 10
         self.pillar_encoder = PillarEncoder(voxel_size=voxel_size, 
                                             point_cloud_range=point_cloud_range, 
-                                            in_channel=10, #change for painting
+                                            in_channel=pillar_channel, #change for painting
                                             out_channel=64)
         self.backbone = Backbone(in_channel=64, 
                                  out_channels=[64, 128, 256], 
