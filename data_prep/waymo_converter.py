@@ -228,7 +228,7 @@ class Waymo2KITTI(object):
             file_idx (int): Current file index.
             frame_idx (int): Current frame index.
         """
-        range_images, camera_projections, range_image_top_pose = \
+        range_images, camera_projections, segmentation_labels, range_image_top_pose = \
             parse_range_image_and_camera_projection(frame)
 
         if range_image_top_pose is None:
@@ -328,7 +328,7 @@ class Waymo2KITTI(object):
             # e.g.: the projected 2D labels can be in camera 2
             # while the most_visible_camera can have id 4
             if cam_sync:
-                if hasattr(obj, 'most_visible_camera_name'):
+                if obj.camera_synced_box.ByteSize():
                     name = str(
                         self.cam_list.index(
                             f'_{obj.most_visible_camera_name}'))
