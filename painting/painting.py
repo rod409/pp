@@ -206,7 +206,7 @@ class Painter:
         augmented_lidar[true_where_point_on_both_0_2, -class_scores[0].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_0_2, -class_scores[0].shape[2]:]
         augmented_lidar[true_where_point_on_both_1_3, -class_scores[1].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_1_3, -class_scores[1].shape[2]:]
         augmented_lidar[true_where_point_on_both_2_4, -class_scores[2].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_2_4, -class_scores[2].shape[2]:]
-        #augmented_lidar = augmented_lidar[true_where_point_on_img]#remove
+        augmented_lidar = augmented_lidar[true_where_point_on_img]#remove
         #augmented_lidar = self.create_cyclist(augmented_lidar)
         return augmented_lidar
 
