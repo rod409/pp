@@ -166,7 +166,7 @@ def _extend_matrix(mat):
     mat = np.concatenate([mat, np.array([[0., 0., 0., 1.]])], axis=0)
     return mat
 
-def add_difficulty_to_annos(info):
+def add_difficulty_to_annos(annos):
     min_height = [40, 25,
                   25]  # minimum height for evaluated groundtruth/detections
     max_occlusion = [
@@ -175,7 +175,6 @@ def add_difficulty_to_annos(info):
     max_trunc = [
         0.15, 0.3, 0.5
     ]  # maximum truncation level of the groundtruth used for evaluation
-    annos = info['annos']
     dims = annos['dimensions']  # lhw format
     bbox = annos['bbox']
     height = bbox[:, 3] - bbox[:, 1]
@@ -413,8 +412,9 @@ class WaymoInfoGatherer:
         if annotations is not None:
             info['annos'] = annotations
             info['annos']['camera_id'] = info['annos'].pop('score')
-            add_difficulty_to_annos(info)
+            add_difficulty_to_annos(info['annos'])
             info['cam_sync_annos'] = cam_sync_annotations
+            add_difficulty_to_annos(info['cam_sync_annos'])
             # NOTE: the 2D labels do not have strict correspondence with
             # the projected 2D lidar labels
             # e.g.: the projected 2D labels can be in camera 2

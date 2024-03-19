@@ -77,7 +77,7 @@ def waymo_data_prep(root_path,
         relative_path=False,
         with_mask=False,
         num_worker=workers).create()'''
-    create_groundtruth_database(out_dir, painted=painted)
+    #create_groundtruth_database(out_dir, painted=painted)
 
 def create_waymo_info_file(data_path,
                            pkl_prefix='waymo',
