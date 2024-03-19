@@ -23,9 +23,9 @@ def save_summary(writer, loss_dict, global_step, tag, lr=None, momentum=None):
 def main(args):
     setup_seed()
     train_dataset = Waymo(data_root=args.data_root,
-                          split='train', painted=args.painted)
+                          split='train', painted=args.painted, cam_sync=args.cam_sync)
     val_dataset = Waymo(data_root=args.data_root,
-                        split='val', painted=args.painted)
+                        split='val', painted=args.painted, cam_sync=args.cam_sync)
     print(args.num_workers)
     train_dataloader = get_dataloader(dataset=train_dataset, 
                                       batch_size=args.batch_size, 
@@ -210,6 +210,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_freq', type=int, default=8)
     parser.add_argument('--ckpt_freq_epoch', type=int, default=20)
     parser.add_argument('--painted', action='store_true', help='if using painted lidar points')
+    parser.add_argument('--cam_sync', action='store_true', help='only use objects visible to a camera')
     parser.add_argument('--no_cuda', action='store_true',
                         help='whether to use cuda')
     args = parser.parse_args()

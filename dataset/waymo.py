@@ -41,29 +41,21 @@ class Waymo(Dataset):
         'Car': 2
         }
 
-    def __init__(self, data_root, split, pts_prefix='velodyne_reduced', painted=False):
+    def __init__(self, data_root, split, pts_prefix='velodyne_reduced', painted=False, cam_sync=False):
         assert split in ['train', 'val', 'trainval', 'test']
         self.data_root = data_root
         self.split = split
         self.pts_prefix = pts_prefix
-        if painted:
+        if painted or cam_sync:
             info_file = f'painted_waymo_infos_{split}.pkl'
         else:
             info_file = f'waymo_infos_{split}.pkl'
         self.data_infos = read_pickle(os.path.join(data_root, info_file))
         self.sorted_ids = range(len(self.data_infos))
         self.painted = painted
-        db_infos = read_pickle(os.path.join(data_root, 'waymo_dbinfos_train.pkl'))
-        db_infos = self.filter_db(db_infos)
-
-        db_sampler = {}
-        for cat_name in self.CLASSES:
-            db_sampler[cat_name] = BaseSampler(db_infos[cat_name], shuffle=True)
+        self.cam_sync = cam_sync
         self.data_aug_config=dict(
-            db_sampler=dict(
-                db_sampler=db_sampler,
-                sample_groups=dict(Car=15, Pedestrian=10, Cyclist=10)
-                ),
+            db_sampler=None,
             object_noise=dict(
                 num_try=100,
                 translation_std=[0.25, 0.25, 0.25],
@@ -106,8 +98,13 @@ class Waymo(Dataset):
         # point cloud input
         velodyne_path = data_info['point_cloud']['velodyne_path']
         pts_path = os.path.join(self.data_root, velodyne_path)
-        if self.painted:
-            pts = read_points(pts_path, 9)
+        if self.cam_sync:
+            annos_info = data_info['cam_sync_annos']
+            if self.painted:
+                pts = read_points(pts_path, 9)
+            else:
+                pts = read_points(pts_path, 9)
+                pts = pts[:,:5]
         else:
             pts = read_points(pts_path, 6)
             pts = pts[:,:5]

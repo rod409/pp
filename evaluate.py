@@ -280,7 +280,7 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
 
 def main(args):
     val_dataset = Waymo(data_root=args.data_root,
-                        split='val', painted=args.painted)
+                        split='val', painted=args.painted, cam_sync=args.cam_sync)
     val_dataloader = get_dataloader(dataset=val_dataset, 
                                     batch_size=args.batch_size, 
                                     num_workers=args.num_workers,
@@ -382,6 +382,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--nclasses', type=int, default=3)
     parser.add_argument('--painted', action='store_true', help='if using painted lidar points')
+    parser.add_argument('--cam_sync', action='store_true', help='only use objects visible to a camera')
     parser.add_argument('--no_cuda', action='store_true',
                         help='whether to use cuda')
     args = parser.parse_args()
