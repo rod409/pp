@@ -49,7 +49,8 @@ def main(rank, args, world_size):
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted)
     loss_func = Loss()
 
-    max_iters = len(train_dataloader) * args.max_epoch
+    max_iters = len(train_dataloader) * args.sched_max_epoch
+    print(max_iters)
     init_lr = args.init_lr
     optimizer = torch.optim.AdamW(params=pointpillars.parameters(), 
                                   lr=init_lr, 
@@ -69,9 +70,19 @@ def main(rank, args, world_size):
     writer = SummaryWriter(saved_logs_path)
     saved_ckpt_path = os.path.join(args.saved_path, 'checkpoints')
     os.makedirs(saved_ckpt_path, exist_ok=True)
+    
+    if args.ckpt:
+        checkpoint = torch.load(args.ckpt)
+        first_epoch = checkpoint["epoch"] + 1
+        pointpillars.module.load_state_dict(checkpoint["model_state_dict"])
+        scheduler.load_state_dict(checkpoint["scheduler"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+    else:
+        first_epoch = 0
 
-    for epoch in range(args.max_epoch):
-        print('=' * 20, epoch, '=' * 20)
+    for epoch in range(first_epoch, args.max_epoch):
+        if rank == 0:
+            print('=' * 20, epoch, '=' * 20)
         train_step, val_step = 0, 0
         for i, data_dict in enumerate(tqdm(train_dataloader)):
             if not args.no_cuda:
@@ -134,12 +145,12 @@ def main(rank, args, world_size):
 
             global_step = epoch * len(train_dataloader) + train_step + 1
 
-            if global_step % args.log_freq == 0:
+            if global_step % args.log_freq == 0 and rank == 0:
                 save_summary(writer, loss_dict, global_step, 'train',
                              lr=optimizer.param_groups[0]['lr'], 
                              momentum=optimizer.param_groups[0]['betas'][0])
             train_step += 1
-        if (epoch + 1) % args.ckpt_freq_epoch == 0:
+        if (epoch + 1) % args.ckpt_freq_epoch == 0 and rank == 0:
             checkpoint = {"epoch": epoch,
                 "model_state_dict": pointpillars.module.state_dict(),
                 "optimizer": optimizer.state_dict(),
@@ -153,11 +164,13 @@ if __name__ == '__main__':
                         help='your data root for kitti')
     parser.add_argument('--saved_path', default='pillar_logs')
     parser.add_argument('--batch_size', type=int, default=6)
-    parser.add_argument('--num_workers', type=int, default=0)
+    parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--nclasses', type=int, default=3)
     parser.add_argument('--init_lr', type=float, default=0.00025)
-    parser.add_argument('--max_epoch', type=int, default=160)
+    parser.add_argument('--max_epoch', type=int, default=60)
+    parser.add_argument('--sched_max_epoch', type=int, default=60)
     parser.add_argument('--log_freq', type=int, default=8)
+    parser.add_argument('--ckpt', default='', help='your model checkpoint')
     parser.add_argument('--ckpt_freq_epoch', type=int, default=20)
     parser.add_argument('--painted', action='store_true', help='if using painted lidar points')
     parser.add_argument('--cam_sync', action='store_true', help='only use objects visible to a camera')
