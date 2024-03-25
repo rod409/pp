@@ -9,6 +9,8 @@ from dataset import Waymo, get_dataloader
 from model import PointPillars
 from loss import Loss
 from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 def save_summary(writer, loss_dict, global_step, tag, lr=None, momentum=None):
@@ -19,8 +21,7 @@ def save_summary(writer, loss_dict, global_step, tag, lr=None, momentum=None):
     if momentum is not None:
         writer.add_scalar('momentum', momentum, global_step)
 
-
-def main(args):
+def main(rank, args, world_size):
     setup_seed()
     train_dataset = Waymo(data_root=args.data_root,
                           split='train', painted=args.painted, cam_sync=args.cam_sync)
@@ -30,14 +31,20 @@ def main(args):
     train_dataloader = get_dataloader(dataset=train_dataset, 
                                       batch_size=args.batch_size, 
                                       num_workers=args.num_workers,
+                                      rank=rank,
+                                      world_size=world_size,
                                       shuffle=True)
     val_dataloader = get_dataloader(dataset=val_dataset, 
                                     batch_size=args.batch_size, 
                                     num_workers=args.num_workers,
-                                    shuffle=False)
+                                    rank=rank,
+                                    world_size=world_size,
+                                    shuffle=False,
+                                    val=True)
 
     if not args.no_cuda:
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted).cuda()
+        pointpillars = DDP(pointpillars, device_ids=[rank], output_device=rank)
     else:
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted)
     loss_func = Loss()
@@ -133,68 +140,11 @@ def main(args):
                              momentum=optimizer.param_groups[0]['betas'][0])
             train_step += 1
         if (epoch + 1) % args.ckpt_freq_epoch == 0:
-            torch.save(pointpillars.state_dict(), os.path.join(saved_ckpt_path, f'epoch_{epoch+1}.pth'))
-
-        #if epoch % 2 == 0:
-        #    continue
-        pointpillars.eval()
-        with torch.no_grad():
-            for i, data_dict in enumerate(tqdm(val_dataloader)):
-                if not args.no_cuda:
-                    # move the tensors to the cuda
-                    for key in data_dict:
-                        for j, item in enumerate(data_dict[key]):
-                            if torch.is_tensor(item):
-                                data_dict[key][j] = data_dict[key][j].cuda()
-                
-                batched_pts = data_dict['batched_pts']
-                batched_gt_bboxes = data_dict['batched_gt_bboxes']
-                batched_labels = data_dict['batched_labels']
-                batched_difficulty = data_dict['batched_difficulty']
-                bbox_cls_pred, bbox_pred, bbox_dir_cls_pred, anchor_target_dict = \
-                    pointpillars(batched_pts=batched_pts, 
-                                mode='train',
-                                batched_gt_bboxes=batched_gt_bboxes, 
-                                batched_gt_labels=batched_labels)
-                
-                bbox_cls_pred = bbox_cls_pred.permute(0, 2, 3, 1).reshape(-1, args.nclasses)
-                bbox_pred = bbox_pred.permute(0, 2, 3, 1).reshape(-1, 7)
-                bbox_dir_cls_pred = bbox_dir_cls_pred.permute(0, 2, 3, 1).reshape(-1, 2)
-
-                batched_bbox_labels = anchor_target_dict['batched_labels'].reshape(-1)
-                batched_label_weights = anchor_target_dict['batched_label_weights'].reshape(-1)
-                batched_bbox_reg = anchor_target_dict['batched_bbox_reg'].reshape(-1, 7)
-                # batched_bbox_reg_weights = anchor_target_dict['batched_bbox_reg_weights'].reshape(-1)
-                batched_dir_labels = anchor_target_dict['batched_dir_labels'].reshape(-1)
-                # batched_dir_labels_weights = anchor_target_dict['batched_dir_labels_weights'].reshape(-1)
-                
-                pos_idx = (batched_bbox_labels >= 0) & (batched_bbox_labels < args.nclasses)
-                bbox_pred = bbox_pred[pos_idx]
-                batched_bbox_reg = batched_bbox_reg[pos_idx]
-                # sin(a - b) = sin(a)*cos(b) - cos(a)*sin(b)
-                bbox_pred[:, -1] = torch.sin(bbox_pred[:, -1]) * torch.cos(batched_bbox_reg[:, -1])
-                batched_bbox_reg[:, -1] = torch.cos(bbox_pred[:, -1]) * torch.sin(batched_bbox_reg[:, -1])
-                bbox_dir_cls_pred = bbox_dir_cls_pred[pos_idx]
-                batched_dir_labels = batched_dir_labels[pos_idx]
-
-                num_cls_pos = (batched_bbox_labels < args.nclasses).sum()
-                bbox_cls_pred = bbox_cls_pred[batched_label_weights > 0]
-                batched_bbox_labels[batched_bbox_labels < 0] = args.nclasses
-                batched_bbox_labels = batched_bbox_labels[batched_label_weights > 0]
-
-                loss_dict = loss_func(bbox_cls_pred=bbox_cls_pred,
-                                    bbox_pred=bbox_pred,
-                                    bbox_dir_cls_pred=bbox_dir_cls_pred,
-                                    batched_labels=batched_bbox_labels, 
-                                    num_cls_pos=num_cls_pos, 
-                                    batched_bbox_reg=batched_bbox_reg, 
-                                    batched_dir_labels=batched_dir_labels)
-                
-                global_step = epoch * len(val_dataloader) + val_step + 1
-                if global_step % args.log_freq == 0:
-                    save_summary(writer, loss_dict, global_step, 'val')
-                val_step += 1
-        pointpillars.train()
+            checkpoint = {"epoch": epoch,
+                "model_state_dict": pointpillars.module.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "scheduler": scheduler.state_dict()}
+            torch.save(checkpoint, os.path.join(saved_ckpt_path, f'epoch_{epoch+1}.pth'))
 
 
 if __name__ == '__main__':
@@ -213,6 +163,10 @@ if __name__ == '__main__':
     parser.add_argument('--cam_sync', action='store_true', help='only use objects visible to a camera')
     parser.add_argument('--no_cuda', action='store_true',
                         help='whether to use cuda')
+    parser.add_argument('--local-rank', default=0, type=int)
     args = parser.parse_args()
-
-    main(args)
+    torch.distributed.init_process_group("nccl", init_method='env://')
+    world_size = torch.distributed.get_world_size()
+    rank = torch.distributed.get_rank()
+    torch.cuda.set_device(rank)
+    main(rank, args, world_size)

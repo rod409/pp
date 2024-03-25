@@ -284,17 +284,20 @@ def main(args):
     val_dataloader = get_dataloader(dataset=val_dataset, 
                                     batch_size=args.batch_size, 
                                     num_workers=args.num_workers,
+                                    rank=0,
+                                    world_size=1,
                                     shuffle=False)
     CLASSES = Waymo.CLASSES
     LABEL2CLASSES = {v:k for k, v in CLASSES.items()}
 
     if not args.no_cuda:
         model = PointPillars(nclasses=args.nclasses, painted=args.painted).cuda()
-        model.load_state_dict(torch.load(args.ckpt))
+        checkpoint = torch.load(args.ckpt)
+        model.load_state_dict(checkpoint["model_state_dict"])
     else:
         model = PointPillars(nclasses=args.nclasses, painted=args.painted)
-        model.load_state_dict(
-            torch.load(args.ckpt, map_location=torch.device('cpu')))
+        checkpoint = torch.load(args.ckpt, map_location=torch.device('cpu'))
+        model.load_state_dict(checkpoint["model_state_dict"])
     
     saved_path = args.saved_path
     os.makedirs(saved_path, exist_ok=True)

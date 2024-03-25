@@ -37,14 +37,12 @@ def collate_fn(list_data):
     return rt_data_dict
 
 
-def get_dataloader(dataset, batch_size, num_workers, shuffle=True, drop_last=False):
-    collate = collate_fn
-    dataloader = DataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        drop_last=drop_last, 
-        collate_fn=collate,
-    )
+def get_dataloader(dataset, batch_size, num_workers, rank, world_size, shuffle=True, drop_last=False, val=False):
+    params = {"batch_size": batch_size,
+                "num_workers": num_workers,
+                'collate_fn': collate_fn}
+    sampler = torch.utils.data.distributed.DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=shuffle, drop_last=drop_last)
+    if val:
+        sampler = None
+    dataloader = DataLoader(dataset, sampler=sampler, **params)
     return dataloader
