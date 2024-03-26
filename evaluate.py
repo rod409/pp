@@ -377,9 +377,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Configuration Parameters')
-    parser.add_argument('--data_root', default='/mnt/ssd1/lifa_rdata/det/kitti', 
-                        help='your data root for kitti')
-    parser.add_argument('--ckpt', default='pretrained/epoch_160.pth', help='your checkpoint for kitti')
+    parser.add_argument('--data_root', help='your data root for waymo')
+    parser.add_argument('--ckpt', default='pretrained/epoch_160.pth', help='your model checkpoint')
     parser.add_argument('--saved_path', default='results', help='your saved path for predicted results')
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--num_workers', type=int, default=4)

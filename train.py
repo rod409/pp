@@ -11,6 +11,7 @@ from loss import Loss
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
+import math
 
 
 def save_summary(writer, loss_dict, global_step, tag, lr=None, momentum=None):
@@ -25,22 +26,12 @@ def main(rank, args, world_size):
     setup_seed()
     train_dataset = Waymo(data_root=args.data_root,
                           split='train', painted=args.painted, cam_sync=args.cam_sync)
-    val_dataset = Waymo(data_root=args.data_root,
-                        split='val', painted=args.painted, cam_sync=args.cam_sync)
-    print(args.num_workers)
     train_dataloader = get_dataloader(dataset=train_dataset, 
                                       batch_size=args.batch_size, 
                                       num_workers=args.num_workers,
                                       rank=rank,
                                       world_size=world_size,
                                       shuffle=True)
-    val_dataloader = get_dataloader(dataset=val_dataset, 
-                                    batch_size=args.batch_size, 
-                                    num_workers=args.num_workers,
-                                    rank=rank,
-                                    world_size=world_size,
-                                    shuffle=False,
-                                    val=True)
 
     if not args.no_cuda:
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted).cuda()
@@ -49,8 +40,7 @@ def main(rank, args, world_size):
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted)
     loss_func = Loss()
 
-    max_iters = len(train_dataloader) * args.sched_max_epoch
-    print(max_iters)
+    max_iters = math.ceil(len(train_dataloader) * args.sched_max_epoch / world_size)
     init_lr = args.init_lr
     optimizer = torch.optim.AdamW(params=pointpillars.parameters(), 
                                   lr=init_lr, 
@@ -83,7 +73,7 @@ def main(rank, args, world_size):
     for epoch in range(first_epoch, args.max_epoch):
         if rank == 0:
             print('=' * 20, epoch, '=' * 20)
-        train_step, val_step = 0, 0
+        train_step = 0
         for i, data_dict in enumerate(tqdm(train_dataloader)):
             if not args.no_cuda:
                 # move the tensors to the cuda
