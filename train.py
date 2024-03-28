@@ -40,7 +40,7 @@ def main(rank, args, world_size):
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted)
     loss_func = Loss()
 
-    max_iters = math.ceil(len(train_dataloader) * args.sched_max_epoch / world_size)
+    max_iters = len(train_dataloader) * args.sched_max_epoch
     init_lr = args.init_lr
     optimizer = torch.optim.AdamW(params=pointpillars.parameters(), 
                                   lr=init_lr, 
