@@ -16,15 +16,14 @@ import argparse
 class Painter:
     def __init__(self, args):
         self.root_split_path = args.training_path
-        self.save_path = args.training_path + "painted_lidar/"
+        self.save_path = os.path.join(args.training_path, "painted_lidar/")
         if not os.path.exists(self.save_path):
             os.mkdir(self.save_path)
 
         self.seg_net_index = 0
         self.model = None
         print(f'Using Segmentation Network -- deeplabv3plus')
-        #config_file = './mmseg/configs/deeplabv3plus/deeplabv3plus_r101-d8_512x1024_80k_cityscapes.py'
-        checkpoint_file = '/home/rod/Documents/research/pp/deeplabv3plus/checkpoints/latest_deeplabv3plus_resnet50_cityscapes_os16.pth'
+        checkpoint_file = args.model_path
         model = network.modeling.__dict__['deeplabv3plus_resnet50'](num_classes=19, output_stride=16)
         checkpoint = torch.load(checkpoint_file, map_location=torch.device('cpu'))
         model.load_state_dict(checkpoint["model_state"])
@@ -236,6 +235,7 @@ class Painter:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Configuration Parameters')
     parser.add_argument('--training_path', help='your data root for the training data', required=True)
+    parser.add_argument('--model_path', help='path to segmentation model', required=True)
     args = parser.parse_args()
     painter = Painter(args)
     painter.run()
