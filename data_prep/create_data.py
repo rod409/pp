@@ -25,7 +25,9 @@ def waymo_data_prep(root_path,
                     out_dir,
                     workers,
                     max_sweeps=5,
-                    painted=False):
+                    painted=False,
+                    convert=False,
+                    create_info=False):
     """Prepare the info file for waymo dataset.
 
     Args:
@@ -41,43 +43,27 @@ def waymo_data_prep(root_path,
     splits = [
         'training', 'validation', 'testing', 'testing_3d_camera_only_detection'
     ]
-    for i, split in enumerate(splits):
-        load_dir = os.path.join(root_path, 'waymo_format', split)
-        if split == 'validation':
-            save_dir = os.path.join(out_dir, 'kitti_format', 'training')
-        else:
-            save_dir = os.path.join(out_dir, 'kitti_format', split)
-        converter = waymo.Waymo2KITTI(
-            load_dir,
-            save_dir,
-            prefix=str(i),
-            workers=workers,
-            test_mode=(split
-                       in ['testing', 'testing_3d_camera_only_detection']))
-        converter.convert()
+    if convert:
+        for i, split in enumerate(splits):
+            load_dir = os.path.join(root_path, 'waymo_format', split)
+            if split == 'validation':
+                save_dir = os.path.join(out_dir, 'kitti_format', 'training')
+            else:
+                save_dir = os.path.join(out_dir, 'kitti_format', split)
+            converter = waymo.Waymo2KITTI(
+                load_dir,
+                save_dir,
+                prefix=str(i),
+                workers=workers,
+                test_mode=(split
+                        in ['testing', 'testing_3d_camera_only_detection']))
+            converter.convert()
 
     waymo.create_ImageSets_img_ids(os.path.join(out_dir, 'kitti_format'), splits)
     # Generate waymo infos
     out_dir = os.path.join(out_dir, 'kitti_format')
-    create_waymo_info_file(
-        out_dir, info_prefix, max_sweeps=max_sweeps, workers=workers, painted=painted)
-    info_train_path = os.path.join(out_dir, f'{info_prefix}_infos_train.pkl')
-    info_val_path = os.path.join(out_dir, f'{info_prefix}_infos_val.pkl')
-    info_trainval_path = os.path.join(out_dir, f'{info_prefix}_infos_trainval.pkl')
-    info_test_path = os.path.join(out_dir, f'{info_prefix}_infos_test.pkl')
-    #update_pkl_infos('waymo', out_dir=out_dir, pkl_path=info_train_path)
-    #update_pkl_infos('waymo', out_dir=out_dir, pkl_path=info_val_path)
-    #update_pkl_infos('waymo', out_dir=out_dir, pkl_path=info_trainval_path)
-    #update_pkl_infos('waymo', out_dir=out_dir, pkl_path=info_test_path)
-    '''GTDatabaseCreater(
-        'WaymoDataset',
-        out_dir,
-        info_prefix,
-        f'{info_prefix}_infos_train.pkl',
-        relative_path=False,
-        with_mask=False,
-        num_worker=workers).create()'''
-    #create_groundtruth_database(out_dir, painted=painted)
+    if create_info:
+        create_waymo_info_file(out_dir, info_prefix, max_sweeps=max_sweeps, workers=workers, painted=painted)
 
 def create_waymo_info_file(data_path,
                            pkl_prefix='waymo',
@@ -303,13 +289,15 @@ def main(args):
     prefix = 'waymo'
     if args.painted:
         prefix = 'painted_waymo'
-    waymo_data_prep(args.waymo_root, prefix, '1.0', args.waymo_root, args.workers, painted=args.painted)
+    waymo_data_prep(args.waymo_root, prefix, '1.0', args.waymo_root, args.workers, painted=args.painted, convert=args.convert, create_info=args.create_info)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Configuration Parameters')
     parser.add_argument('--waymo_root', help='your data root for the waymo dataset', required=True)
     parser.add_argument('--workers', default=4, help='number of processes')
     parser.add_argument('--painted', action='store_true', help='if using painted lidar points')
+    parser.add_argument('--convert', action='store_true', help='convert to kitti format')
+    parser.add_argument('--create_info', action='store_true', help='create info file')
     args = parser.parse_args()
     main(args)
 
