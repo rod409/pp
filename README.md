@@ -27,9 +27,14 @@ You will need two conda environments. One for processing the dataset and other f
   conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
   conda install tqdm
   conda install numba
-  pip install opencv
+  pip install opencv-python
   pip install open3d
   pip install tensorboard
+```
+## Compile ops
+```
+    cd ops
+    python setup.py develop
 ```
 # Preparing the Dataset
 First convert the dataset to the KITTI format. This will create a kitti_format folder under your waymo directory.
@@ -47,7 +52,7 @@ python painting.py --training_path [path/to/waymo]/kitti_format/training/ --mode
 Create the info file used for training
 ```
   cd data_prep
-  python create_data.py --waymo_root ~/Documents/research/datasets/waymo/ --painted --create_info
+  python create_data.py --waymo_root ~[path/to/waymo] --painted --create_info
 ```
 
 # Training
