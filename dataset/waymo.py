@@ -101,9 +101,9 @@ class Waymo(Dataset):
         if self.cam_sync:
             annos_info = data_info['cam_sync_annos']
             if self.painted:
-                pts = read_points(pts_path, 9)
+                pts = read_points(pts_path, 11)
             else:
-                pts = read_points(pts_path, 9)
+                pts = read_points(pts_path, 11)
                 pts = pts[:,:5]
         else:
             pts = read_points(pts_path, 6)

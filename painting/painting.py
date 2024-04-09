@@ -46,59 +46,35 @@ class Painter:
             a tensor H  * W * 4(deeplab)/5(deeplabv3plus), for each pixel we have 4/5 scorer that sums to 1
         '''
         output_reassign_softmax = None
-        if self.seg_net_index == 0:
-            filename = self.root_split_path + left + ('%s.jpg' % idx)
-            input_image = Image.open(filename)
-            preprocess = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ])
+        filename = self.root_split_path + left + ('%s.jpg' % idx)
+        input_image = Image.open(filename)
+        preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
 
-            input_tensor = preprocess(input_image)
-            input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
+        input_tensor = preprocess(input_image)
+        input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
 
-            # move the input and model to GPU for speed if available
-            if torch.cuda.is_available():
-                input_batch = input_batch.to('cuda')
+        # move the input and model to GPU for speed if available
+        if torch.cuda.is_available():
+            input_batch = input_batch.to('cuda')
 
-            with torch.no_grad():
-                output = self.model(input_batch)[0]
-
-            output_permute = output.permute(1,2,0)
-            output_probability,output_predictions =  output_permute.max(2)
-
-            other_object_mask = ~((output_predictions == 0) | (output_predictions == 2) | (output_predictions == 7) | (output_predictions == 15))
-            detect_object_mask = ~other_object_mask
-            sf = torch.nn.Softmax(dim=2)
-
-            # bicycle = 2 car = 7 person = 15 background = 0
-            output_reassign = torch.zeros(output_permute.size(0),output_permute.size(1),4)
-            output_reassign[:,:,0] = detect_object_mask * output_permute[:,:,0] + other_object_mask * output_probability # background
-            output_reassign[:,:,1] = output_permute[:,:,2] # bicycle
-            output_reassign[:,:,2] = output_permute[:,:,7] # car
-            output_reassign[:,:,3] = output_permute[:,:,15] #person
-            output_reassign_softmax = sf(output_reassign).cpu().numpy()
-
-        elif self.seg_net_index == 1:
-            filename = self.root_split_path + left + ('%s.png' % idx)
-            result = inference_segmentor(self.model, filename)
-            # person 11, rider 12, vehicle 13/14/15/16, bike 17/18
-            output_permute = torch.tensor(result[0]).permute(1,2,0) # H, W, 19
-            sf = torch.nn.Softmax(dim=2)
-
-            output_reassign = torch.zeros(output_permute.size(0),output_permute.size(1), 5)
-            output_reassign[:,:,0], _ = torch.max(output_permute[:,:,:11], dim=2) # background
-            output_reassign[:,:,1], _ = torch.max(output_permute[:,:,[17, 18]], dim=2) # bicycle
-            output_reassign[:,:,2], _ = torch.max(output_permute[:,:,[13, 14, 15, 16]], dim=2) # car
-            output_reassign[:,:,3] = output_permute[:,:,11] #person
-            output_reassign[:,:,4] = output_permute[:,:,12] #rider
-            output_reassign_softmax = sf(output_reassign).cpu().numpy()
+        with torch.no_grad():
+            output = self.model(input_batch)[0]
         
-        elif self.seg_net_index == 2:
-            filename = self.root_split_path + "score_hma/" + left + ('%s.npy' % idx)
-            output_reassign_softmax = np.load(filename)
+        sf = torch.nn.Softmax(dim=2)
+        output_permute = output.permute(1,2,0)
+        output_permute = sf(output_permute)
+        output_reassign = torch.zeros(output_permute.size(0),output_permute.size(1), 6)
+        output_reassign[:,:,0] = torch.sum(output_permute[:,:,:11], dim=2) # background
+        output_reassign[:,:,1] = output_permute[:,:,18] #bicycle
+        output_reassign[:,:,2] = torch.sum(output_permute[:,:,[13, 14, 15, 16]], dim=2) # vehicles
+        output_reassign[:,:,3] = output_permute[:,:,11] #person
+        output_reassign[:,:,4] = output_permute[:,:,12] #rider
+        output_reassign[:,:,5] = output_permute[:,:,17] # motorcycle
 
-        return output_reassign_softmax
+        return output_reassign.cpu().numpy()
     
     def get_calib_fromfile(self, idx):
         calib_file = self.root_split_path + 'calib/' + ('%s.txt' % idx)

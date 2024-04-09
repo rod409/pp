@@ -232,12 +232,12 @@ class PointPillars(nn.Module):
                                         max_num_points=max_num_points, 
                                         max_voxels=max_voxels)
         if painted:
-            pillar_channel = 14
+            pillar_channel = 16
         else:
             pillar_channel = 10
         self.pillar_encoder = PillarEncoder(voxel_size=voxel_size, 
                                             point_cloud_range=point_cloud_range, 
-                                            in_channel=pillar_channel, #change for painting
+                                            in_channel=pillar_channel,
                                             out_channel=64)
         self.backbone = Backbone(in_channel=64, 
                                  out_channels=[64, 128, 256], 
