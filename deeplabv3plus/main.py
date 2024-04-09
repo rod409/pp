@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 
 from torch.utils import data
-from datasets import VOCSegmentation, Cityscapes
+from datasets import VOCSegmentation, Cityscapes, Cognata, prepare_cognata, train_val_split
 from utils import ext_transforms as et
 from metrics import StreamSegMetrics
 
@@ -27,7 +27,7 @@ def get_argparser():
     parser.add_argument("--data_root", type=str, default='./datasets/data',
                         help="path to Dataset")
     parser.add_argument("--dataset", type=str, default='voc',
-                        choices=['voc', 'cityscapes'], help='Name of dataset')
+                        choices=['voc', 'cityscapes', 'cognata'], help='Name of dataset')
     parser.add_argument("--num_classes", type=int, default=None,
                         help="num classes (default: None)")
 
@@ -150,6 +150,25 @@ def get_dataset(opts):
                                split='train', transform=train_transform)
         val_dst = Cityscapes(root=opts.data_root,
                              split='val', transform=val_transform)
+    if opts.dataset == 'cognata':
+        train_transform = et.ExtCompose([
+            et.ExtRandomCrop(size=(opts.crop_size, opts.crop_size)),
+            et.ExtColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+            et.ExtRandomHorizontalFlip(),
+            et.ExtToTensor(),
+            et.ExtNormalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225]),
+        ])
+
+        val_transform = et.ExtCompose([
+            et.ExtToTensor(),
+            et.ExtNormalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225]),
+        ])
+        files = prepare_cognata(opts.data_root, ['10001_Urban_Clear_Noon'], ['Cognata_Camera_01_8M'])
+        split = train_val_split(files)
+        train_dst = Cognata(split['train'], transform=train_transform)
+        val_dst = Cognata(split['val'], transform=val_transform)
     return train_dst, val_dst
 
 
@@ -212,7 +231,7 @@ def main():
     opts = get_argparser().parse_args()
     if opts.dataset.lower() == 'voc':
         opts.num_classes = 21
-    elif opts.dataset.lower() == 'cityscapes':
+    elif opts.dataset.lower() == 'cityscapes' or opts.dataset.lower() == 'cognata':
         opts.num_classes = 19
 
     # Setup visualization
