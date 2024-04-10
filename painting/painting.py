@@ -36,7 +36,7 @@ class Painter:
 
         
     def get_lidar(self, idx):
-        lidar_file = self.root_split_path + 'velodyne/' + ('%s.bin' % idx)
+        lidar_file = os.path.join(self.root_split_path, 'velodyne/' + ('%s.bin' % idx))
         return np.fromfile(str(lidar_file), dtype=np.float32).reshape(-1, 6)
 
     def get_score(self, idx, left):
@@ -46,7 +46,7 @@ class Painter:
             a tensor H  * W * 4(deeplab)/5(deeplabv3plus), for each pixel we have 4/5 scorer that sums to 1
         '''
         output_reassign_softmax = None
-        filename = self.root_split_path + left + ('%s.jpg' % idx)
+        filename = os.path.join(self.root_split_path, left + ('%s.jpg' % idx))
         input_image = Image.open(filename)
         preprocess = transforms.Compose([
             transforms.ToTensor(),
@@ -77,7 +77,7 @@ class Painter:
         return output_reassign.cpu().numpy()
     
     def get_calib_fromfile(self, idx):
-        calib_file = self.root_split_path + 'calib/' + ('%s.txt' % idx)
+        calib_file = os.path.join(self.root_split_path, 'calib/' + ('%s.txt' % idx))
         calib = calibration_waymo.get_calib_from_file(calib_file)
         calib['P0'] = np.concatenate([calib['P0'], np.array([[0., 0., 0., 1.]])], axis=0)
         calib['P1'] = np.concatenate([calib['P1'], np.array([[0., 0., 0., 1.]])], axis=0)
@@ -186,7 +186,7 @@ class Painter:
         return augmented_lidar
 
     def run(self):
-        image_files = os.listdir(self.root_split_path + 'image_0')
+        image_files = os.listdir(os.path.join(self.root_split_path, 'image_0'))
         for img_file in tqdm(image_files):
             
             sample_idx = os.path.splitext(img_file)[0]
