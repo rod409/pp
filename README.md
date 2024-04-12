@@ -34,7 +34,7 @@ Create a conda environment
 First convert the dataset to the KITTI format. This will create a kitti_format folder under your waymo directory.
 ```
   cd data_prep
-  python create_data.py --waymo_root [path/to/waymo] --painted --convert
+  python convert_data.py --waymo_root [path/to/waymo]
 ```
 Next paint the lidar points using a trained segmentation model.
 ```
@@ -44,19 +44,25 @@ python painting.py --training_path [path/to/waymo]/kitti_format/training/ --mode
 Create the info file used for training
 ```
   cd data_prep
-  python create_data.py --waymo_root [path/to/waymo] --painted --create_info
+  python create_info.py --waymo_root [path/to/waymo] --painted --create_info
 ```
 
 # Training
 To train on painted lidar points.
 ```
   conda activate pp
-  python -m torch.distributed.launch --nproc_per_node=[gpus] train.py --data_root [path/to/waymo]/kitti_format/  --painted --cam_sync --save-path [checkpoint/path] --max_epoch [num of epochs] --ckpt_freq_epoch [freq]
+  torchrun --nproc_per_node=[gpus] train.py --data_root [path/to/waymo]/kitti_format/  --painted --cam_sync --save-path [checkpoint/path] --max_epoch [num of epochs] --ckpt_freq_epoch [freq]
 ```
+# Evaluation
 To evaluate the mAP.
 ```
 conda activate pp
 python evaluate.py --ckpt [checkpoint/path] --data_root [path/to/waymo]/kitti_format/ --painted --cam_sync
+```
+To perform inference
+```
+conda activate pp
+python inference.py --data_root [path/to/waymo]/kitti_format --lidar_detector [pointpillars/checkpoint/path] --segmentor [deeplab/checkpoint/path] --painted --cam_sync
 ```
 # Acknowledements
 
