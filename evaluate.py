@@ -341,13 +341,13 @@ def main(args):
                 }
                 
                 calib_info = data_dict['batched_calib_info'][j]
-                tr_velo_to_cam = calib_info['Tr_velo_to_cam'].astype(np.float32)
+                tr_velo_to_cam = calib_info['Tr_velo_to_cam_0'].astype(np.float32)
                 r0_rect = calib_info['R0_rect'].astype(np.float32)
                 P0 = calib_info['P0'].astype(np.float32)
                 image_shape = data_dict['batched_img_info'][j]['image_shape']
                 idx = data_dict['batched_img_info'][j]['image_idx']
-                result_filter = keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P0, image_shape)
-                result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
+                #result_filter = keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P0, image_shape)
+                result_filter = keep_bbox_from_lidar_range(result, pcd_limit_range)
 
                 lidar_bboxes = result_filter['lidar_bboxes']
                 labels, scores = result_filter['labels'], result_filter['scores']

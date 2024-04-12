@@ -270,7 +270,7 @@ class WaymoInfoGatherer:
         root_path = Path(self.path)
         info = {}
         if self.painted:
-            pc_info = {'num_features': 9}
+            pc_info = {'num_features': 11}
         else:
             pc_info = {'num_features': 6}
         calib_info = {}
@@ -393,11 +393,11 @@ class WaymoInfoGatherer:
             calib_info['P3'] = P3
             calib_info['P4'] = P4
             calib_info['R0_rect'] = rect_4x4
-            calib_info['Tr_velo_to_cam'] = Tr_velo_to_cam
-            calib_info['Tr_velo_to_cam1'] = Tr_velo_to_cam1
-            calib_info['Tr_velo_to_cam2'] = Tr_velo_to_cam2
-            calib_info['Tr_velo_to_cam3'] = Tr_velo_to_cam3
-            calib_info['Tr_velo_to_cam4'] = Tr_velo_to_cam4
+            calib_info['Tr_velo_to_cam_0'] = Tr_velo_to_cam
+            calib_info['Tr_velo_to_cam_1'] = Tr_velo_to_cam1
+            calib_info['Tr_velo_to_cam_2'] = Tr_velo_to_cam2
+            calib_info['Tr_velo_to_cam_3'] = Tr_velo_to_cam3
+            calib_info['Tr_velo_to_cam_4'] = Tr_velo_to_cam4
             info['calib'] = calib_info
 
         if self.pose:

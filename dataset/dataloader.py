@@ -14,7 +14,7 @@ def collate_fn(list_data):
         pts, gt_bboxes_3d = data_dict['pts'], data_dict['gt_bboxes_3d']
         gt_labels, gt_names = data_dict['gt_labels'], data_dict['gt_names']
         difficulty = data_dict['difficulty']
-        image_info, calbi_info = data_dict['image_info'], data_dict['calib_info']
+        image_info, calib_info = data_dict['image_info'], data_dict['calib_info']
 
         batched_pts_list.append(torch.from_numpy(pts))
         batched_gt_bboxes_list.append(torch.from_numpy(gt_bboxes_3d))
@@ -22,7 +22,7 @@ def collate_fn(list_data):
         batched_names_list.append(gt_names) # List(str)
         batched_difficulty_list.append(torch.from_numpy(difficulty))
         batched_img_list.append(image_info)
-        batched_calib_list.append(calbi_info)
+        batched_calib_list.append(calib_info)
     
     rt_data_dict = dict(
         batched_pts=batched_pts_list,

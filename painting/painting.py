@@ -3,7 +3,6 @@ import numpy as np
 import torch
 from torchvision import transforms
 from PIL import Image
-import calibration_waymo
 import copy
 import sys
 from tqdm import tqdm
@@ -12,6 +11,25 @@ import deeplabv3plus.network as network
 import argparse
 #fix segmentation network
 
+def get_calib_from_file(calib_file):
+    """Read in a calibration file and parse into a dictionary."""
+    data = {}
+
+    with open(calib_file, 'r') as f:
+        lines = [line for line in f.readlines() if line.strip()]
+    for line in lines:
+        key, value = line.split(':', 1)
+        # The only non-float values in these files are dates, which
+        # we don't care about anyway
+        try:
+            if key == 'R0_rect':
+                data['R0'] = np.array([float(x) for x in value.split()]).reshape(3, 3)
+            else:
+                data[key] = np.array([float(x) for x in value.split()]).reshape(3, 4)
+        except ValueError:
+            pass
+
+    return data
 
 class Painter:
     def __init__(self, args):
@@ -39,14 +57,8 @@ class Painter:
         lidar_file = os.path.join(self.root_split_path, 'velodyne/' + ('%s.bin' % idx))
         return np.fromfile(str(lidar_file), dtype=np.float32).reshape(-1, 6)
 
-    def get_score(self, idx, left):
-        ''' idx : index string
-            left : string indicates left/right camera 
-        return:
-            a tensor H  * W * 4(deeplab)/5(deeplabv3plus), for each pixel we have 4/5 scorer that sums to 1
-        '''
-        output_reassign_softmax = None
-        filename = os.path.join(self.root_split_path, left + ('%s.jpg' % idx))
+    def get_image(self, idx, camera):
+        filename = os.path.join(self.root_split_path, camera + ('%s.jpg' % idx))
         input_image = Image.open(filename)
         preprocess = transforms.Compose([
             transforms.ToTensor(),
@@ -55,16 +67,21 @@ class Painter:
 
         input_tensor = preprocess(input_image)
         input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
-
+        if torch.cuda.is_available():
+            input_batch = input_batch.to('cuda')
         # move the input and model to GPU for speed if available
         if torch.cuda.is_available():
             input_batch = input_batch.to('cuda')
-
+        return input_batch
+    
+    def get_model_output(self, input_batch):
         with torch.no_grad():
             output = self.model(input_batch)[0]
-        
+        return output
+
+    def get_score(self, model_output):
         sf = torch.nn.Softmax(dim=2)
-        output_permute = output.permute(1,2,0)
+        output_permute = model_output.permute(1,2,0)
         output_permute = sf(output_permute)
         output_reassign = torch.zeros(output_permute.size(0),output_permute.size(1), 6)
         output_reassign[:,:,0] = torch.sum(output_permute[:,:,:11], dim=2) # background
@@ -78,7 +95,7 @@ class Painter:
     
     def get_calib_fromfile(self, idx):
         calib_file = os.path.join(self.root_split_path, 'calib/' + ('%s.txt' % idx))
-        calib = calibration_waymo.get_calib_from_file(calib_file)
+        calib = get_calib_from_file(calib_file)
         calib['P0'] = np.concatenate([calib['P0'], np.array([[0., 0., 0., 1.]])], axis=0)
         calib['P1'] = np.concatenate([calib['P1'], np.array([[0., 0., 0., 1.]])], axis=0)
         calib['P2'] = np.concatenate([calib['P2'], np.array([[0., 0., 0., 1.]])], axis=0)
@@ -196,7 +213,9 @@ class Painter:
             # get segmentation score from network
             scores_from_cam = []
             for i in range(5):
-                scores_from_cam.append(self.get_score(sample_idx, 'image_' + str(i) + '/'))
+                input_batch = self.get_image(sample_idx, 'image_' + str(i) + '/')
+                output = self.get_model_output(input_batch)
+                scores_from_cam.append(self.get_score(output))
             # scores_from_cam: H * W * 4/5, each pixel have 4/5 scores(0: background, 1: bicycle, 2: car, 3: person, 4: rider)
 
             # get calibration data

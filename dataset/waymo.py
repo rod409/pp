@@ -9,6 +9,8 @@ sys.path.append(os.path.dirname(BASE))
 
 from utils import read_pickle, read_points, bbox_camera2lidar
 from dataset import point_range_filter, data_augment
+from torchvision import transforms
+from PIL import Image
 
 
 class BaseSampler():
@@ -41,7 +43,7 @@ class Waymo(Dataset):
         'Car': 2
         }
 
-    def __init__(self, data_root, split, pts_prefix='velodyne_reduced', painted=False, cam_sync=False):
+    def __init__(self, data_root, split, pts_prefix='velodyne_reduced', painted=False, cam_sync=False, inference=False):
         assert split in ['train', 'val', 'trainval', 'test']
         self.data_root = data_root
         self.split = split
@@ -54,6 +56,7 @@ class Waymo(Dataset):
         self.sorted_ids = range(len(self.data_infos))
         self.painted = painted
         self.cam_sync = cam_sync
+        self.inference = inference
         self.data_aug_config=dict(
             db_sampler=None,
             object_noise=dict(
@@ -100,7 +103,7 @@ class Waymo(Dataset):
         pts_path = os.path.join(self.data_root, velodyne_path)
         if self.cam_sync:
             annos_info = data_info['cam_sync_annos']
-            if self.painted:
+            if self.painted and not self.inference:
                 pts = read_points(pts_path, 11)
             else:
                 pts = read_points(pts_path, 11)
@@ -111,7 +114,7 @@ class Waymo(Dataset):
         
         # calib input: for bbox coordinates transformation between Camera and Lidar.
         # because
-        tr_velo_to_cam = calib_info['Tr_velo_to_cam'].astype(np.float32)
+        tr_velo_to_cam = calib_info['Tr_velo_to_cam_0'].astype(np.float32)
         r0_rect = calib_info['R0_rect'].astype(np.float32)
 
         # annotations input
@@ -136,8 +139,26 @@ class Waymo(Dataset):
             data_dict = data_augment(self.CLASSES, self.data_root, data_dict, self.data_aug_config)
         else:
             data_dict = point_range_filter(data_dict, point_range=self.data_aug_config['point_range_filter'])
+        if self.inference:
+            images = []
+            for i in range(5):
+                image = self.get_image(image_info['image_idx'], 'image_' + str(i) + '/')
+                images.append(image)
+            data_dict['image_info']['images'] = images
 
         return data_dict
+
+    def get_image(self, idx, camera):
+        filename = os.path.join(self.data_root, 'training', camera + ('%s.jpg' % idx))
+        input_image = Image.open(filename)
+        preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+
+        input_tensor = preprocess(input_image)
+        input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
+        return input_batch
 
     def __len__(self):
         return len(self.data_infos)
