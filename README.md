@@ -51,7 +51,7 @@ Create the info file used for training
 To train on painted lidar points.
 ```
   conda activate pp
-  torchrun --nproc_per_node=[gpus] train.py --data_root [path/to/waymo]/kitti_format/  --painted --cam_sync --save-path [checkpoint/path] --max_epoch [num of epochs] --ckpt_freq_epoch [freq]
+  torchrun --nproc_per_node=[gpus] train.py --data_root [path/to/waymo]/kitti_format/  --painted --cam_sync --saved_path [checkpoint/path] --max_epoch [num of epochs] --ckpt_freq_epoch [freq]
 ```
 # Evaluation
 To evaluate the mAP.
