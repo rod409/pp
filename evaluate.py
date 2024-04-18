@@ -346,13 +346,13 @@ def main(args):
                 P0 = calib_info['P0'].astype(np.float32)
                 image_shape = data_dict['batched_img_info'][j]['image_shape']
                 idx = data_dict['batched_img_info'][j]['image_idx']
-                #result_filter = keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P0, image_shape)
-                result_filter = keep_bbox_from_lidar_range(result, pcd_limit_range)
+                result_filter = keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P0, image_shape)
+                result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
 
                 lidar_bboxes = result_filter['lidar_bboxes']
                 labels, scores = result_filter['labels'], result_filter['scores']
                 bboxes2d, camera_bboxes = result_filter['bboxes2d'], result_filter['camera_bboxes']
-                for lidar_bbox, label, score, bbox2d, camera_bbox in \
+                for lidar_bboxes, label, score, bbox2d, camera_bbox in \
                     zip(lidar_bboxes, labels, scores, bboxes2d, camera_bboxes):
                     format_result['name'].append(LABEL2CLASSES[label])
                     format_result['truncated'].append(0.0)
