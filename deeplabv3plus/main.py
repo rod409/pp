@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 
 from torch.utils import data
-from datasets import VOCSegmentation, Cityscapes, Cognata, prepare_cognata, train_val_split
+from datasets import VOCSegmentation, Cityscapes, Cognata, prepare_cognata, train_val_split, cognata_scenarios
 from utils import ext_transforms as et
 from metrics import StreamSegMetrics
 
@@ -165,7 +165,7 @@ def get_dataset(opts):
             et.ExtNormalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225]),
         ])
-        files = prepare_cognata(opts.data_root, ['10001_Urban_Clear_Noon'], ['Cognata_Camera_01_8M'])
+        files = prepare_cognata(opts.data_root, cognata_scenarios.folders, cognata_scenarios.cameras)
         split = train_val_split(files)
         train_dst = Cognata(split['train'], transform=train_transform)
         val_dst = Cognata(split['val'], transform=val_transform)

@@ -43,6 +43,6 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Configuration Parameters')
     parser.add_argument('--waymo_root', help='your data root for the waymo dataset', required=True)
-    parser.add_argument('--workers', default=4, help='number of processes')
+    parser.add_argument('--workers', default=4, help='number of processes', type=int)
     args = parser.parse_args()
     main(args)
