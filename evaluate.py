@@ -304,10 +304,10 @@ def main(args):
     saved_submit_path = os.path.join(saved_path, 'submit')
     os.makedirs(saved_submit_path, exist_ok=True)
 
-    pcd_limit_range = np.array([-74.88, -74.88, -2, 74.88, 74.88, 4], dtype=np.float32)
+    pcd_limit_range = torch.tensor([-74.88, -74.88, -2, 74.88, 74.88, 4])
 
     model.eval()
-    with torch.no_grad():
+    with torch.inference_mode():
         format_results = {}
         print('Predicting and Formatting the results.')
         for i, data_dict in enumerate(tqdm(val_dataloader)):
@@ -354,19 +354,21 @@ def main(args):
                 bboxes2d, camera_bboxes = result_filter['bboxes2d'], result_filter['camera_bboxes']
                 for lidar_bboxes, label, score, bbox2d, camera_bbox in \
                     zip(lidar_bboxes, labels, scores, bboxes2d, camera_bboxes):
-                    format_result['name'].append(LABEL2CLASSES[label])
+                    format_result['name'].append(LABEL2CLASSES[label.item()])
                     format_result['truncated'].append(0.0)
                     format_result['occluded'].append(0)
                     alpha = camera_bbox[6] - np.arctan2(camera_bbox[0], camera_bbox[2])
-                    format_result['alpha'].append(alpha)
+                    format_result['alpha'].append(alpha.item())
                     format_result['bbox'].append(bbox2d)
                     format_result['dimensions'].append(camera_bbox[3:6])
                     format_result['location'].append(camera_bbox[:3])
-                    format_result['rotation_y'].append(camera_bbox[6])
-                    format_result['score'].append(score)
+                    format_result['rotation_y'].append(camera_bbox[6].item())
+                    format_result['score'].append(score.item())
                 
                 write_label(format_result, os.path.join(saved_submit_path, f'{idx:06d}.txt'))
-
+                if len(format_result['dimensions']) > 0:
+                    format_result['dimensions'] = torch.stack(format_result['dimensions'])
+                    format_result['location'] = torch.stack(format_result['location'])
                 format_results[idx] = {k:np.array(v) for k, v in format_result.items()}
         
         write_pickle(format_results, os.path.join(saved_path, 'results.pkl'))

@@ -41,11 +41,11 @@ def bbox_lidar2camera(bboxes, tr_velo_to_cam, r0_rect):
     return: shape=(N, 7)
     '''
     x_size, y_size, z_size = bboxes[:, 3:4], bboxes[:, 4:5], bboxes[:, 5:6]
-    xyz_size = np.concatenate([y_size, z_size, x_size], axis=1)
-    extended_xyz = np.pad(bboxes[:, :3], ((0, 0), (0, 1)), 'constant', constant_values=1.0)
+    xyz_size = torch.cat([y_size, z_size, x_size], axis=1)
+    extended_xyz = torch.nn.functional.pad(bboxes[:, :3], (0, 1), 'constant', value=1.0)
     rt_mat = r0_rect @ tr_velo_to_cam
     xyz = extended_xyz @ rt_mat.T
-    bboxes_camera = np.concatenate([xyz[:, :3], xyz_size, bboxes[:, 6:]], axis=1)
+    bboxes_camera = torch.cat([xyz[:, :3], xyz_size, bboxes[:, 6:]], axis=1)
     return bboxes_camera
 
 
@@ -55,10 +55,10 @@ def points_camera2image(points, P2):
     P2: shape=(4, 4)
     return: shape=(N, 8, 2)
     '''
-    extended_points = np.pad(points, ((0, 0), (0, 0), (0, 1)), 'constant', constant_values=1.0) # (n, 8, 4)
+    extended_points = torch.nn.functional.pad(points, (0, 1), 'constant', value=1.0) # (n, 8, 4)
     image_points = extended_points @ P2.T # (N, 8, 4)
     image_points = image_points[:, :, :2] / image_points[:, :, 2:3]
-    return image_points
+    return image_points.clone().detach()
 
 
 def points_lidar2image(points, tr_velo_to_cam, r0_rect, P2):
@@ -180,24 +180,22 @@ def bbox3d2corners_camera(bboxes):
     centers, dims, angles = bboxes[:, :3], bboxes[:, 3:6], bboxes[:, 6]
 
     # 1.generate bbox corner coordinates, clockwise from minimal point
-    bboxes_corners = np.array([[0.5, 0.0, -0.5], [0.5, -1.0, -0.5], [-0.5, -1.0, -0.5], [-0.5, 0.0, -0.5],
-                               [0.5, 0.0, 0.5], [0.5, -1.0, 0.5], [-0.5, -1.0, 0.5], [-0.5, 0.0, 0.5]], 
-                               dtype=np.float32)
+    bboxes_corners = torch.tensor([[0.5, 0.0, -0.5], [0.5, -1.0, -0.5], [-0.5, -1.0, -0.5], [-0.5, 0.0, -0.5],
+                               [0.5, 0.0, 0.5], [0.5, -1.0, 0.5], [-0.5, -1.0, 0.5], [-0.5, 0.0, 0.5]])
     bboxes_corners = bboxes_corners[None, :, :] * dims[:, None, :] # (1, 8, 3) * (n, 1, 3) -> (n, 8, 3)
 
     # 2. rotate around y axis
-    rot_sin, rot_cos = np.sin(angles), np.cos(angles)
+    rot_sin, rot_cos = torch.sin(angles), torch.cos(angles)
     # in fact, angle
-    rot_mat = np.array([[rot_cos, np.zeros_like(rot_cos), rot_sin],
-                        [np.zeros_like(rot_cos), np.ones_like(rot_cos), np.zeros_like(rot_cos)],
-                        [-rot_sin, np.zeros_like(rot_cos), rot_cos]], 
-                        dtype=np.float32) # (3, 3, n)
-    rot_mat = np.transpose(rot_mat, (2, 1, 0)) # (n, 3, 3)
+    rot_mat = torch.stack([torch.stack([rot_cos, torch.zeros_like(rot_cos), rot_sin]),
+                        torch.stack([torch.zeros_like(rot_cos), torch.ones_like(rot_cos), torch.zeros_like(rot_cos)]),
+                        torch.stack([-rot_sin, torch.zeros_like(rot_cos), rot_cos])]) # (3, 3, n)
+    rot_mat = torch.permute(rot_mat, (2, 1, 0)) # (n, 3, 3)
     bboxes_corners = bboxes_corners @ rot_mat # (n, 8, 3)
 
     # 3. translate to centers
     bboxes_corners += centers[:, None, :]
-    return bboxes_corners
+    return bboxes_corners.clone().detach()
 
 
 def group_rectangle_vertexs(bboxes_corners):
@@ -572,10 +570,10 @@ def keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P2, image_shape)
     camera_bboxes = bbox_lidar2camera(lidar_bboxes, tr_velo_to_cam, r0_rect) # (n, 7)
     bboxes_points = bbox3d2corners_camera(camera_bboxes) # (n, 8, 3)
     image_points = points_camera2image(bboxes_points, P2) # (n, 8, 2)
-    image_x1y1 = np.min(image_points, axis=1) # (n, 2)
-    image_x1y1 = np.maximum(image_x1y1, 0)
-    image_x2y2 = np.max(image_points, axis=1) # (n, 2)
-    image_x2y2 = np.minimum(image_x2y2, [w, h])
+    image_x1y1 = torch.min(image_points, axis=1)[0] # (n, 2)
+    image_x1y1 = torch.maximum(image_x1y1, torch.tensor(0))
+    image_x2y2 = torch.max(image_points, axis=1)[0] # (n, 2)
+    image_x2y2 = torch.minimum(image_x2y2, torch.tensor([w, h]))
     bboxes2d = np.concatenate([image_x1y1, image_x2y2], axis=-1)
 
     keep_flag = (image_x1y1[:, 0] < w) & (image_x1y1[:, 1] < h) & (image_x2y2[:, 0] > 0) & (image_x2y2[:, 1] > 0)
@@ -598,13 +596,13 @@ def keep_bbox_from_lidar_range(result, pcd_limit_range):
     '''
     lidar_bboxes, labels, scores = result['lidar_bboxes'], result['labels'], result['scores']
     if 'bboxes2d' not in result:
-        result['bboxes2d'] = np.zeros_like(lidar_bboxes[:, :4])
+        result['bboxes2d'] = torch.zeros_like(lidar_bboxes[:, :4])
     if 'camera_bboxes' not in result:
-        result['camera_bboxes'] = np.zeros_like(lidar_bboxes)
+        result['camera_bboxes'] = torch.zeros_like(lidar_bboxes)
     bboxes2d, camera_bboxes = result['bboxes2d'], result['camera_bboxes']
     flag1 = lidar_bboxes[:, :3] > pcd_limit_range[:3][None, :] # (n, 3)
     flag2 = lidar_bboxes[:, :3] < pcd_limit_range[3:][None, :] # (n, 3)
-    keep_flag = np.all(flag1, axis=-1) & np.all(flag2, axis=-1)
+    keep_flag = torch.all(flag1, axis=-1) & torch.all(flag2, axis=-1)
     
     result = {
         'lidar_bboxes': lidar_bboxes[keep_flag],

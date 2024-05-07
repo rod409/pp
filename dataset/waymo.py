@@ -144,7 +144,9 @@ class Waymo(Dataset):
             for i in range(5):
                 image = self.get_image(image_info['image_idx'], 'image_' + str(i) + '/')
                 images.append(image)
-            data_dict['image_info']['images'] = images
+            data_dict['images'] = images
+        else:
+            data_dict['images'] = None
 
         return data_dict
 

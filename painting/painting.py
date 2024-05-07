@@ -43,10 +43,8 @@ class Painter:
         print(f'Using Segmentation Network -- deeplabv3plus')
         checkpoint_file = args.model_path
         model = network.modeling.__dict__['deeplabv3plus_resnet50'](num_classes=19, output_stride=16)
-        checkpoint = torch.load(checkpoint_file, map_location=torch.device('cpu'))
+        checkpoint = torch.load(checkpoint_file)
         model.load_state_dict(checkpoint["model_state"])
-        model = torch.nn.DataParallel(model)
-        #model.load_state_dict(torch.load(checkpoint_file))
         model.eval()
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.to(device)
