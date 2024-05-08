@@ -574,7 +574,7 @@ def keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P2, image_shape)
     image_x1y1 = torch.maximum(image_x1y1, torch.tensor(0))
     image_x2y2 = torch.max(image_points, axis=1)[0] # (n, 2)
     image_x2y2 = torch.minimum(image_x2y2, torch.tensor([w, h]))
-    bboxes2d = np.concatenate([image_x1y1, image_x2y2], axis=-1)
+    bboxes2d = torch.cat([image_x1y1, image_x2y2], axis=-1)
 
     keep_flag = (image_x1y1[:, 0] < w) & (image_x1y1[:, 1] < h) & (image_x2y2[:, 0] > 0) & (image_x2y2[:, 1] > 0)
     
