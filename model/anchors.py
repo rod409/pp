@@ -1,6 +1,5 @@
-import pdb
-import numpy as np
 import torch
+import math
 from utils import limit_period, iou2d_nearest
 
 
@@ -197,8 +196,8 @@ def anchor_target(batched_anchors, batched_gt_bboxes, batched_gt_labels, assigne
             assigned_gt_dir_weights[pos_flag] = 1
 
             assigned_gt_dir = torch.zeros_like(cur_anchors[:, 0], dtype=torch.long)
-            dir_cls_targets = limit_period(corr_gt_bboxes[:, 6].cpu(), 0, 2 * np.pi).to(corr_gt_bboxes)
-            dir_cls_targets = torch.floor(dir_cls_targets / np.pi).long()
+            dir_cls_targets = limit_period(corr_gt_bboxes[:, 6].cpu(), 0, 2 * math.pi).to(corr_gt_bboxes)
+            dir_cls_targets = torch.floor(dir_cls_targets / math.pi).long()
             assigned_gt_dir[pos_flag] = torch.clamp(dir_cls_targets, min=0, max=1)
 
             multi_labels.append(assigned_gt_labels.reshape(d1, d2, 1, d4))

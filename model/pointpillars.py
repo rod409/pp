@@ -1,5 +1,3 @@
-import numpy as np
-import pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -197,7 +195,7 @@ class Head(nn.Module):
                 nn.init.normal_(m.weight, mean=0, std=0.01)
                 if conv_layer_id == 0:
                     prior_prob = 0.01
-                    bias_init = float(-np.log((1 - prior_prob) / prior_prob))
+                    bias_init = float(-math.log((1 - prior_prob) / prior_prob))
                     nn.init.constant_(m.bias, bias_init)
                 else:
                     nn.init.constant_(m.bias, 0)
@@ -331,8 +329,8 @@ class PointPillars(nn.Module):
             cur_bbox_cls_pred = cur_bbox_cls_pred[keep_inds]
             cur_bbox_pred = cur_bbox_pred[keep_inds]
             cur_bbox_dir_cls_pred = cur_bbox_dir_cls_pred[keep_inds]
-            cur_bbox_pred[:, -1] = limit_period(cur_bbox_pred[:, -1].detach().cpu(), 1, np.pi).to(cur_bbox_pred) # [-pi, 0]
-            cur_bbox_pred[:, -1] += (1 - cur_bbox_dir_cls_pred) * np.pi
+            cur_bbox_pred[:, -1] = limit_period(cur_bbox_pred[:, -1].detach().cpu(), 1, math.pi).to(cur_bbox_pred) # [-pi, 0]
+            cur_bbox_pred[:, -1] += (1 - cur_bbox_dir_cls_pred) * math.pi
 
             ret_bboxes.append(cur_bbox_pred)
             ret_labels.append(torch.zeros_like(cur_bbox_pred[:, 0], dtype=torch.long) + i)
