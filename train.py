@@ -40,21 +40,14 @@ def main(rank, args, world_size):
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted)
     loss_func = Loss()
 
-    max_iters = len(train_dataloader) * args.sched_max_epoch
-    init_lr = args.init_lr
+    init_lr = args.init_lr*world_size*args.batch_size/32.0
     optimizer = torch.optim.AdamW(params=pointpillars.parameters(), 
                                   lr=init_lr, 
                                   betas=(0.95, 0.99),
                                   weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,  
-                                                    max_lr=init_lr*10, 
-                                                    total_steps=max_iters, 
-                                                    pct_start=0.4, 
-                                                    anneal_strategy='cos',
-                                                    cycle_momentum=True, 
-                                                    base_momentum=0.95*0.895, 
-                                                    max_momentum=0.95,
-                                                    div_factor=10)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,  
+                                                    milestones=[20,23],
+                                                    gamma=0.1)
     saved_logs_path = os.path.join(args.saved_path, 'summary')
     os.makedirs(saved_logs_path, exist_ok=True)
     writer = SummaryWriter(saved_logs_path)
@@ -157,7 +150,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=6)
     parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--nclasses', type=int, default=3)
-    parser.add_argument('--init_lr', type=float, default=0.00025)
+    parser.add_argument('--init_lr', type=float, default=0.001)
     parser.add_argument('--max_epoch', type=int, default=60)
     parser.add_argument('--sched_max_epoch', type=int, default=60)
     parser.add_argument('--log_freq', type=int, default=8)
