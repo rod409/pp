@@ -553,37 +553,33 @@ def iou_bev(bboxes1, bboxes2):
     return bev_overlap
 
 
-def keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P2, image_shape):
-    '''
-    result: dict(lidar_bboxes, labels, scores)
-    tr_velo_to_cam: shape=(4, 4)
-    r0_rect: shape=(4, 4)
-    P2: shape=(4, 4)
-    image_shape: (h, w)
-    return: dict(lidar_bboxes, labels, scores, bboxes2d, camera_bboxes)
-    '''
-    h, w = image_shape
-
+def keep_bbox_from_image_range(result, calib_info, num_images, image_info):
+    r0_rect = calib_info['R0_rect']
     lidar_bboxes = result['lidar_bboxes']
     labels = result['labels']
     scores = result['scores']
-    camera_bboxes = bbox_lidar2camera(lidar_bboxes, tr_velo_to_cam, r0_rect) # (n, 7)
-    bboxes_points = bbox3d2corners_camera(camera_bboxes) # (n, 8, 3)
-    image_points = points_camera2image(bboxes_points, P2) # (n, 8, 2)
-    image_x1y1 = torch.min(image_points, axis=1)[0] # (n, 2)
-    image_x1y1 = torch.maximum(image_x1y1, torch.tensor(0))
-    image_x2y2 = torch.max(image_points, axis=1)[0] # (n, 2)
-    image_x2y2 = torch.minimum(image_x2y2, torch.tensor([w, h]))
-    bboxes2d = torch.cat([image_x1y1, image_x2y2], axis=-1)
+    total_keep_flag = torch.zeros(lidar_bboxes.size(dim=0)).bool()
+    for i in range(num_images):
+        h, w = image_info['camera'][i]['image_shape']
+        tr_velo_to_cam = calib_info['Tr_velo_to_cam_' + str(i)]
+        P = calib_info['P' + str(i)]
+        camera_bboxes = bbox_lidar2camera(lidar_bboxes, tr_velo_to_cam, r0_rect) # (n, 7)
+        bboxes_points = bbox3d2corners_camera(camera_bboxes) # (n, 8, 3)
+        image_points = points_camera2image(bboxes_points, P) # (n, 8, 2)
+        image_x1y1 = torch.min(image_points, axis=1)[0] # (n, 2)
+        image_x1y1 = torch.maximum(image_x1y1, torch.tensor(0))
+        image_x2y2 = torch.max(image_points, axis=1)[0] # (n, 2)
+        image_x2y2 = torch.minimum(image_x2y2, torch.tensor([w, h]))
+        bboxes2d = torch.cat([image_x1y1, image_x2y2], axis=-1)
 
-    keep_flag = (image_x1y1[:, 0] < w) & (image_x1y1[:, 1] < h) & (image_x2y2[:, 0] > 0) & (image_x2y2[:, 1] > 0)
-    
+        keep_flag = (image_x1y1[:, 0] < w) & (image_x1y1[:, 1] < h) & (image_x2y2[:, 0] > 0) & (image_x2y2[:, 1] > 0)
+        total_keep_flag = total_keep_flag | keep_flag
     result = {
-        'lidar_bboxes': lidar_bboxes[keep_flag],
-        'labels': labels[keep_flag],
-        'scores': scores[keep_flag],
-        'bboxes2d': bboxes2d[keep_flag],
-        'camera_bboxes': camera_bboxes[keep_flag]
+        'lidar_bboxes': lidar_bboxes[total_keep_flag],
+        'labels': labels[total_keep_flag],
+        'scores': scores[total_keep_flag],
+        'bboxes2d': bboxes2d[total_keep_flag],
+        'camera_bboxes': camera_bboxes[total_keep_flag]
     }
     return result
 

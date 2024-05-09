@@ -275,7 +275,7 @@ class WaymoInfoGatherer:
             pc_info = {'num_features': 6}
         calib_info = {}
 
-        image_info = {'image_idx': idx}
+        image_info = {'image_idx': idx, 'camera': []}
         annotations = None
         if self.velodyne:
             pc_info['velodyne_path'] = get_velodyne_path(
@@ -293,21 +293,23 @@ class WaymoInfoGatherer:
                     relative_path=False,
                     use_prefix_id=True)) as f:
             info['timestamp'] = np.int64(f.read())
-        image_info['image_path'] = get_image_path(
-            idx,
-            self.path,
-            self.training,
-            self.relative_path,
-            info_type='image_0',
-            file_tail='.jpg',
-            use_prefix_id=True)
-        if self.with_imageshape:
-            img_path = image_info['image_path']
-            if self.relative_path:
-                img_path = str(root_path / img_path)
-            # io using PIL is significantly faster than skimage
-            w, h = Image.open(img_path).size
-            image_info['image_shape'] = np.array((h, w), dtype=np.int32)
+        for i in range(5):
+            image_info['camera'].append({})
+            image_info['camera'][i]['image_path'] = get_image_path(
+                idx,
+                self.path,
+                self.training,
+                self.relative_path,
+                info_type='image_' + str(i),
+                file_tail='.jpg',
+                use_prefix_id=True)
+            if self.with_imageshape:
+                img_path = image_info['camera'][i]['image_path']
+                if self.relative_path:
+                    img_path = str(root_path / img_path)
+                # io using PIL is significantly faster than skimage
+                w, h = Image.open(img_path).size
+                image_info['camera'][i]['image_shape'] = np.array((h, w), dtype=np.int32)
         if self.label_info:
             label_path = get_label_path(
                 idx,

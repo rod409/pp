@@ -32,6 +32,17 @@ def get_score_thresholds(tp_scores, total_num_valid_gt, num_sample_pts=41):
         cur_recall = pts_ind / (num_sample_pts - 1)
     return score_thresholds
 
+def convert_calib(calib, cuda):
+    result = {}
+    if cuda:
+        device = 'cuda'
+    else:
+        device='cpu'
+    result['R0_rect'] = torch.from_numpy(calib['R0_rect']).to(device=device, dtype=torch.float)
+    for i in range(5):
+        result['P' + str(i)] = torch.from_numpy(calib['P' + str(i)]).to(device=device, dtype=torch.float)
+        result['Tr_velo_to_cam_' + str(i)] = torch.from_numpy(calib['Tr_velo_to_cam_' + str(i)]).to(device=device, dtype=torch.float)
+    return result
 
 def do_eval(det_results, gt_results, CLASSES, saved_path):
     '''
@@ -339,14 +350,11 @@ def main(args):
                     'rotation_y': [],
                     'score': []
                 }
-                
+                data_dict['batched_calib_info'][0] = convert_calib(data_dict['batched_calib_info'][0], False)
                 calib_info = data_dict['batched_calib_info'][j]
-                tr_velo_to_cam = calib_info['Tr_velo_to_cam_0'].astype(np.float32)
-                r0_rect = calib_info['R0_rect'].astype(np.float32)
-                P0 = calib_info['P0'].astype(np.float32)
-                image_shape = data_dict['batched_img_info'][j]['image_shape']
+                image_info = data_dict['batched_img_info'][j]
                 idx = data_dict['batched_img_info'][j]['image_idx']
-                result_filter = keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P0, image_shape)
+                result_filter = keep_bbox_from_image_range(result, calib_info, 5, image_info)
                 result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
 
                 lidar_bboxes = result_filter['lidar_bboxes']

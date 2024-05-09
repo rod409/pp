@@ -19,14 +19,22 @@ from evaluate import do_eval
 
 def convert_calib(calib, cuda):
     result = {}
+    result['R0_rect'] = torch.from_numpy(calib['R0_rect'])
+    for i in range(5):
+        result['P' + str(i)] = torch.from_numpy(calib['P' + str(i)])
+        result['Tr_velo_to_cam_' + str(i)] = torch.from_numpy(calib['Tr_velo_to_cam_' + str(i)])
+    return change_calib_device(result, cuda)
+
+def change_calib_device(calib, cuda):
+    result = {}
     if cuda:
         device = 'cuda'
     else:
         device='cpu'
-    result['R0_rect'] = torch.from_numpy(calib['R0_rect']).to(device=device, dtype=torch.float)
+    result['R0_rect'] = calib['R0_rect'].to(device=device, dtype=torch.float)
     for i in range(5):
-        result['P' + str(i)] = torch.from_numpy(calib['P' + str(i)]).to(device=device, dtype=torch.float)
-        result['Tr_velo_to_cam_' + str(i)] = torch.from_numpy(calib['Tr_velo_to_cam_' + str(i)]).to(device=device, dtype=torch.float)
+        result['P' + str(i)] = calib['P' + str(i)].to(device=device, dtype=torch.float)
+        result['Tr_velo_to_cam_' + str(i)] = calib['Tr_velo_to_cam_' + str(i)].to(device=device, dtype=torch.float)
     return result
 
 def main(args):
@@ -110,12 +118,11 @@ def main(args):
                 }
                 
                 calib_info = data_dict['batched_calib_info'][j]
-                tr_velo_to_cam = calib_info['Tr_velo_to_cam_0'].to(device='cpu')
-                r0_rect = calib_info['R0_rect'].to(device='cpu')
-                P0 = calib_info['P0'].to(device='cpu')
-                image_shape = data_dict['batched_img_info'][j]['image_shape']
+                image_info = data_dict['batched_img_info'][j]
                 idx = data_dict['batched_img_info'][j]['image_idx']
-                result_filter = keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P0, image_shape)
+                
+                calib_info = change_calib_device(calib_info, False)
+                result_filter = keep_bbox_from_image_range(result, calib_info, 5, image_info)
                 result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
                 
                 lidar_bboxes = result_filter['lidar_bboxes']
