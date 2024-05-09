@@ -47,4 +47,4 @@ def get_dataloader(dataset, batch_size, num_workers, rank, world_size, shuffle=T
     if val:
         sampler = None
     dataloader = DataLoader(dataset, sampler=sampler, **params)
-    return dataloader
+    return (dataloader, sampler)

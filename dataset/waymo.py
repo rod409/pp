@@ -2,7 +2,7 @@ import numpy as np
 import os
 import torch
 from torch.utils.data import Dataset
-
+import math
 import sys
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(BASE))
@@ -43,10 +43,11 @@ class Waymo(Dataset):
         'Car': 2
         }
 
-    def __init__(self, data_root, split, pts_prefix='velodyne_reduced', painted=False, cam_sync=False, inference=False):
+    def __init__(self, data_root, split, pts_prefix='velodyne_reduced', painted=False, cam_sync=False, inference=False, interval=1):
         assert split in ['train', 'val', 'trainval', 'test']
         self.data_root = data_root
         self.split = split
+        self.interval = interval
         self.pts_prefix = pts_prefix
         if painted or cam_sync:
             info_file = f'painted_waymo_infos_{split}.pkl'
@@ -94,10 +95,9 @@ class Waymo(Dataset):
         return db_infos
 
     def __getitem__(self, index):
-        data_info = self.data_infos[self.sorted_ids[index]]
+        data_info = self.data_infos[self.sorted_ids[index*self.interval]]
         image_info, calib_info, annos_info = \
             data_info['image'], data_info['calib'], data_info['annos']
-    
         # point cloud input
         velodyne_path = data_info['point_cloud']['velodyne_path']
         pts_path = os.path.join(self.data_root, velodyne_path)
@@ -163,7 +163,7 @@ class Waymo(Dataset):
         return input_batch
 
     def __len__(self):
-        return len(self.data_infos)
+        return math.floor(len(self.data_infos)/self.interval)
  
 
 if __name__ == '__main__':

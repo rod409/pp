@@ -17,10 +17,22 @@ from utils import setup_seed, keep_bbox_from_image_range, \
     iou2d, iou3d_camera, iou_bev
 from evaluate import do_eval
 
+def convert_calib(calib, cuda):
+    result = {}
+    if cuda:
+        device = 'cuda'
+    else:
+        device='cpu'
+    result['R0_rect'] = torch.from_numpy(calib['R0_rect']).to(device=device, dtype=torch.float)
+    for i in range(5):
+        result['P' + str(i)] = torch.from_numpy(calib['P' + str(i)]).to(device=device, dtype=torch.float)
+        result['Tr_velo_to_cam_' + str(i)] = torch.from_numpy(calib['Tr_velo_to_cam_' + str(i)]).to(device=device, dtype=torch.float)
+    return result
+
 def main(args):
     val_dataset = Waymo(data_root=args.data_root,
                         split='val', painted=args.painted, cam_sync=args.cam_sync, inference=True)
-    val_dataloader = get_dataloader(dataset=val_dataset, 
+    val_dataloader, _ = get_dataloader(dataset=val_dataset, 
                                     batch_size=1, 
                                     num_workers=args.num_workers,
                                     rank=0,
@@ -54,8 +66,10 @@ def main(args):
         print('Predicting and Formatting the results.')
         latency_results = []
         for i, data_dict in enumerate(tqdm(val_dataloader)):
+            data_dict['batched_calib_info'][0] = convert_calib(data_dict['batched_calib_info'][0], not args.no_cuda)
             if not args.no_cuda:
                 # move the tensors to the cuda
+                data_dict['batched_pts'][0].to(device='cuda')
                 for i in range(len(data_dict['batched_images'][0])):
                     data_dict['batched_images'][0][i] = data_dict['batched_images'][0][i].to(device='cuda')
                 for key in data_dict:
@@ -74,8 +88,7 @@ def main(args):
                 segmentation_score = deeplab(data_dict['batched_images'][0][i])[0]
                 scores_from_cam.append(painter.get_score(segmentation_score))
 
-            points = painter.augment_lidar_class_scores_both(scores_from_cam, batched_pts[0].cpu().numpy(), data_dict['batched_calib_info'][0])
-            points = torch.from_numpy(points).to(device='cuda', dtype=torch.float32)
+            points = painter.augment_lidar_class_scores_both(scores_from_cam, batched_pts[0], data_dict['batched_calib_info'][0])
             batch_results = model(batched_pts=[points], 
                                   mode='val',
                                   batched_gt_bboxes=batched_gt_bboxes, 
@@ -97,9 +110,9 @@ def main(args):
                 }
                 
                 calib_info = data_dict['batched_calib_info'][j]
-                tr_velo_to_cam = calib_info['Tr_velo_to_cam_0'].astype(np.float32)
-                r0_rect = calib_info['R0_rect'].astype(np.float32)
-                P0 = calib_info['P0'].astype(np.float32)
+                tr_velo_to_cam = calib_info['Tr_velo_to_cam_0'].to(device='cpu')
+                r0_rect = calib_info['R0_rect'].to(device='cpu')
+                P0 = calib_info['P0'].to(device='cpu')
                 image_shape = data_dict['batched_img_info'][j]['image_shape']
                 idx = data_dict['batched_img_info'][j]['image_idx']
                 result_filter = keep_bbox_from_image_range(result, tr_velo_to_cam, r0_rect, P0, image_shape)

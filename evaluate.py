@@ -281,7 +281,7 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
 def main(args):
     val_dataset = Waymo(data_root=args.data_root,
                         split='val', painted=args.painted, cam_sync=args.cam_sync)
-    val_dataloader = get_dataloader(dataset=val_dataset, 
+    val_dataloader, _ = get_dataloader(dataset=val_dataset, 
                                     batch_size=args.batch_size, 
                                     num_workers=args.num_workers,
                                     rank=0,

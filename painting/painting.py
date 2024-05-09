@@ -81,7 +81,7 @@ class Painter:
         sf = torch.nn.Softmax(dim=2)
         output_permute = model_output.permute(1,2,0)
         output_permute = sf(output_permute)
-        output_reassign = torch.zeros(output_permute.size(0),output_permute.size(1), 6)
+        output_reassign = torch.zeros(output_permute.size(0),output_permute.size(1), 6).to(device=model_output.device)
         output_reassign[:,:,0] = torch.sum(output_permute[:,:,:11], dim=2) # background
         output_reassign[:,:,1] = output_permute[:,:,18] #bicycle
         output_reassign[:,:,2] = torch.sum(output_permute[:,:,[13, 14, 15, 16]], dim=2) # vehicles
@@ -89,24 +89,24 @@ class Painter:
         output_reassign[:,:,4] = output_permute[:,:,12] #rider
         output_reassign[:,:,5] = output_permute[:,:,17] # motorcycle
 
-        return output_reassign.cpu().numpy()
+        return output_reassign
     
-    def get_calib_fromfile(self, idx):
+    def get_calib_fromfile(self, idx, device):
         calib_file = os.path.join(self.root_split_path, 'calib/' + ('%s.txt' % idx))
         calib = get_calib_from_file(calib_file)
-        calib['P0'] = torch.cat([calib['P0'], torch.tensor([[0., 0., 0., 1.]])], axis=0)
-        calib['P1'] = torch.cat([calib['P1'], torch.tensor([[0., 0., 0., 1.]])], axis=0)
-        calib['P2'] = torch.cat([calib['P2'], torch.tensor([[0., 0., 0., 1.]])], axis=0)
-        calib['P3'] = torch.cat([calib['P3'], torch.tensor([[0., 0., 0., 1.]])], axis=0)
-        calib['P4'] = torch.cat([calib['P4'], torch.tensor([[0., 0., 0., 1.]])], axis=0)
-        calib['R0_rect'] = torch.zeros([4, 4], dtype=calib['R0'].dtype)
+        calib['P0'] = torch.cat([calib['P0'], torch.tensor([[0., 0., 0., 1.]])], axis=0).to(device=device)
+        calib['P1'] = torch.cat([calib['P1'], torch.tensor([[0., 0., 0., 1.]])], axis=0).to(device=device)
+        calib['P2'] = torch.cat([calib['P2'], torch.tensor([[0., 0., 0., 1.]])], axis=0).to(device=device)
+        calib['P3'] = torch.cat([calib['P3'], torch.tensor([[0., 0., 0., 1.]])], axis=0).to(device=device)
+        calib['P4'] = torch.cat([calib['P4'], torch.tensor([[0., 0., 0., 1.]])], axis=0).to(device=device)
+        calib['R0_rect'] = torch.zeros([4, 4], dtype=calib['R0'].dtype, device=device)
         calib['R0_rect'][3, 3] = 1.
-        calib['R0_rect'][:3, :3] = calib['R0']
-        calib['Tr_velo_to_cam_0'] = torch.cat([calib['Tr_velo_to_cam_0'], torch.tensor([[0., 0., 0., 1.]], )], axis=0)
-        calib['Tr_velo_to_cam_1'] = torch.cat([calib['Tr_velo_to_cam_1'], torch.tensor([[0., 0., 0., 1.]], )], axis=0)
-        calib['Tr_velo_to_cam_2'] = torch.cat([calib['Tr_velo_to_cam_2'], torch.tensor([[0., 0., 0., 1.]], )], axis=0)
-        calib['Tr_velo_to_cam_3'] = torch.cat([calib['Tr_velo_to_cam_3'], torch.tensor([[0., 0., 0., 1.]], )], axis=0)
-        calib['Tr_velo_to_cam_4'] = torch.cat([calib['Tr_velo_to_cam_4'], torch.tensor([[0., 0., 0., 1.]], )], axis=0)
+        calib['R0_rect'][:3, :3] = calib['R0'].to(device=device)
+        calib['Tr_velo_to_cam_0'] = torch.cat([calib['Tr_velo_to_cam_0'], torch.tensor([[0., 0., 0., 1.]], )], axis=0).to(device=device)
+        calib['Tr_velo_to_cam_1'] = torch.cat([calib['Tr_velo_to_cam_1'], torch.tensor([[0., 0., 0., 1.]], )], axis=0).to(device=device)
+        calib['Tr_velo_to_cam_2'] = torch.cat([calib['Tr_velo_to_cam_2'], torch.tensor([[0., 0., 0., 1.]], )], axis=0).to(device=device)
+        calib['Tr_velo_to_cam_3'] = torch.cat([calib['Tr_velo_to_cam_3'], torch.tensor([[0., 0., 0., 1.]], )], axis=0).to(device=device)
+        calib['Tr_velo_to_cam_4'] = torch.cat([calib['Tr_velo_to_cam_4'], torch.tensor([[0., 0., 0., 1.]], )], axis=0).to(device=device)
         return calib
     
     def cam_to_lidar(self, pointcloud, projection_mats, camera_num):
@@ -184,7 +184,7 @@ class Painter:
         point_scores_3 = class_scores[3][points_projected_on_mask_3[:, 1], points_projected_on_mask_3[:, 0]].reshape(-1, class_scores[3].shape[2])
         point_scores_4 = class_scores[4][points_projected_on_mask_4[:, 1], points_projected_on_mask_4[:, 0]].reshape(-1, class_scores[4].shape[2])
 
-        augmented_lidar = torch.cat((lidar_raw[:,:5], torch.zeros((lidar_raw.shape[0], class_scores[1].shape[2]))), axis=1)
+        augmented_lidar = torch.cat((lidar_raw[:,:5], torch.zeros((lidar_raw.shape[0], class_scores[1].shape[2])).to(device=lidar_raw.device)), axis=1)
         augmented_lidar[true_where_point_on_img_0, -class_scores[0].shape[2]:] += point_scores_0
         augmented_lidar[true_where_point_on_img_1, -class_scores[1].shape[2]:] += point_scores_1
         augmented_lidar[true_where_point_on_img_2, -class_scores[2].shape[2]:] += point_scores_2
@@ -213,13 +213,14 @@ class Painter:
                 output = self.get_model_output(input_batch)
                 scores_from_cam.append(self.get_score(output))
             # scores_from_cam: H * W * 4/5, each pixel have 4/5 scores(0: background, 1: bicycle, 2: car, 3: person, 4: rider)
-
+            device = scores_from_cam[0].device
             # get calibration data
-            calib_fromfile = self.get_calib_fromfile(sample_idx)
+            calib_fromfile = self.get_calib_fromfile(sample_idx, device)
+            points = points.to(device=device)
             
             # paint the point clouds
             # points: N * 8
-            points = self.augment_lidar_class_scores_both(scores_from_cam, points, calib_fromfile)
+            points = self.augment_lidar_class_scores_both(scores_from_cam, points, calib_fromfile).cpu()
             
             np.save(self.save_path + ("%s.npy" % sample_idx), points)
 
