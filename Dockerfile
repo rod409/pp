@@ -7,4 +7,4 @@ RUN pip install open3d
 RUN pip install tensorboard
 RUN pip install scikit-image
 RUN pip install ninja
-
+RUN pip install visdom
