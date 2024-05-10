@@ -8,7 +8,6 @@ Download v1.4.1 of the [Waymo Open Dataset](https://waymo.com/open/download/) fo
         |- waymo_format
             |- training
             |- validation
-            |- testing
 
 
 # Environment
@@ -24,6 +23,8 @@ Create a conda environment
   pip install tensorboard
   pip install waymo-open-dataset-tf-2-11-0==1.6.1
 ```
+Alternateivly use the 2 provided docker containers. convert.dockerfile is for converting the dataset to the KITTI format. All other operations can be performed using the main container Dockerfile.
+
 ## Compile ops
 ```
     conda activate pp
@@ -44,7 +45,7 @@ python painting.py --training_path [path/to/waymo]/kitti_format/training/ --mode
 Create the info file used for training
 ```
   cd data_prep
-  python create_info.py --waymo_root [path/to/waymo] --painted --create_info
+  python create_info.py --waymo_root [path/to/waymo] --painted
 ```
 
 # Training
