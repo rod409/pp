@@ -354,8 +354,8 @@ def main(args):
                 calib_info = data_dict['batched_calib_info'][j]
                 image_info = data_dict['batched_img_info'][j]
                 idx = data_dict['batched_img_info'][j]['image_idx']
-                result_filter = keep_bbox_from_image_range(result, calib_info, 5, image_info)
-                result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
+                result_filter = keep_bbox_from_image_range(result, calib_info, 1, image_info)
+                #result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
 
                 lidar_bboxes = result_filter['lidar_bboxes']
                 labels, scores = result_filter['labels'], result_filter['scores']
@@ -367,7 +367,7 @@ def main(args):
                     format_result['occluded'].append(0)
                     alpha = camera_bbox[6] - np.arctan2(camera_bbox[0], camera_bbox[2])
                     format_result['alpha'].append(alpha.item())
-                    format_result['bbox'].append(bbox2d)
+                    format_result['bbox'].append(bbox2d.tolist())
                     format_result['dimensions'].append(camera_bbox[3:6])
                     format_result['location'].append(camera_bbox[:3])
                     format_result['rotation_y'].append(camera_bbox[6].item())

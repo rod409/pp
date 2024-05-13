@@ -564,6 +564,8 @@ def keep_bbox_from_image_range(result, calib_info, num_images, image_info):
         tr_velo_to_cam = calib_info['Tr_velo_to_cam_' + str(i)]
         P = calib_info['P' + str(i)]
         camera_bboxes = bbox_lidar2camera(lidar_bboxes, tr_velo_to_cam, r0_rect) # (n, 7)
+        if i == 0:
+            main_camera_bboxes = camera_bboxes.clone()
         bboxes_points = bbox3d2corners_camera(camera_bboxes) # (n, 8, 3)
         image_points = points_camera2image(bboxes_points, P) # (n, 8, 2)
         image_x1y1 = torch.min(image_points, axis=1)[0] # (n, 2)
@@ -574,12 +576,19 @@ def keep_bbox_from_image_range(result, calib_info, num_images, image_info):
 
         keep_flag = (image_x1y1[:, 0] < w) & (image_x1y1[:, 1] < h) & (image_x2y2[:, 0] > 0) & (image_x2y2[:, 1] > 0)
         total_keep_flag = total_keep_flag | keep_flag
-    result = {
+    '''result = {
         'lidar_bboxes': lidar_bboxes[total_keep_flag],
         'labels': labels[total_keep_flag],
         'scores': scores[total_keep_flag],
         'bboxes2d': bboxes2d[total_keep_flag],
-        'camera_bboxes': camera_bboxes[total_keep_flag]
+        'camera_bboxes': main_camera_bboxes[total_keep_flag]
+    }'''
+    result =  {
+        'lidar_bboxes': lidar_bboxes,
+        'labels': labels,
+        'scores': scores,
+        'bboxes2d': bboxes2d,
+        'camera_bboxes': main_camera_bboxes
     }
     return result
 

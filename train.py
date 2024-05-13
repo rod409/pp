@@ -40,13 +40,13 @@ def main(rank, args, world_size):
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted)
     loss_func = Loss()
 
-    init_lr = args.init_lr*world_size*args.batch_size/32.0
+    init_lr = args.init_lr
     optimizer = torch.optim.AdamW(params=pointpillars.parameters(), 
                                   lr=init_lr, 
                                   betas=(0.95, 0.99),
                                   weight_decay=0.01)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,  
-                                                    milestones=[20,23],
+                                                    milestones=[20, 23],
                                                     gamma=0.1)
     saved_logs_path = os.path.join(args.saved_path, 'summary')
     os.makedirs(saved_logs_path, exist_ok=True)
@@ -68,72 +68,78 @@ def main(rank, args, world_size):
         if rank == 0:
             print('=' * 20, epoch, '=' * 20)
         train_step = 0
-        for i, data_dict in enumerate(tqdm(train_dataloader)):
-            if not args.no_cuda:
-                # move the tensors to the cuda
-                for key in data_dict:
-                    for j, item in enumerate(data_dict[key]):
-                        if torch.is_tensor(item):
-                            data_dict[key][j] = data_dict[key][j].cuda()
-            
-            optimizer.zero_grad()
+        with tqdm(total=len(train_dataloader), disable=rank != 0) as pbar:
+            for i, data_dict in enumerate(train_dataloader):
+                if not args.no_cuda:
+                    # move the tensors to the cuda
+                    for key in data_dict:
+                        for j, item in enumerate(data_dict[key]):
+                            if torch.is_tensor(item):
+                                data_dict[key][j] = data_dict[key][j].cuda()
+                
+                optimizer.zero_grad()
 
-            batched_pts = data_dict['batched_pts']
-            batched_gt_bboxes = data_dict['batched_gt_bboxes']
-            batched_labels = data_dict['batched_labels']
-            batched_difficulty = data_dict['batched_difficulty']
-            bbox_cls_pred, bbox_pred, bbox_dir_cls_pred, anchor_target_dict = \
-                pointpillars(batched_pts=batched_pts, 
-                             mode='train',
-                             batched_gt_bboxes=batched_gt_bboxes, 
-                             batched_gt_labels=batched_labels)
-            
-            bbox_cls_pred = bbox_cls_pred.permute(0, 2, 3, 1).reshape(-1, args.nclasses)
-            bbox_pred = bbox_pred.permute(0, 2, 3, 1).reshape(-1, 7)
-            bbox_dir_cls_pred = bbox_dir_cls_pred.permute(0, 2, 3, 1).reshape(-1, 2)
+                batched_pts = data_dict['batched_pts']
+                batched_gt_bboxes = data_dict['batched_gt_bboxes']
+                batched_labels = data_dict['batched_labels']
+                batched_difficulty = data_dict['batched_difficulty']
+                bbox_cls_pred, bbox_pred, bbox_dir_cls_pred, anchor_target_dict = \
+                    pointpillars(batched_pts=batched_pts, 
+                                mode='train',
+                                batched_gt_bboxes=batched_gt_bboxes, 
+                                batched_gt_labels=batched_labels)
+                
+                bbox_cls_pred = bbox_cls_pred.permute(0, 2, 3, 1).reshape(-1, args.nclasses)
+                bbox_pred = bbox_pred.permute(0, 2, 3, 1).reshape(-1, 7)
+                bbox_dir_cls_pred = bbox_dir_cls_pred.permute(0, 2, 3, 1).reshape(-1, 2)
 
-            batched_bbox_labels = anchor_target_dict['batched_labels'].reshape(-1)
-            batched_label_weights = anchor_target_dict['batched_label_weights'].reshape(-1)
-            batched_bbox_reg = anchor_target_dict['batched_bbox_reg'].reshape(-1, 7)
-            # batched_bbox_reg_weights = anchor_target_dict['batched_bbox_reg_weights'].reshape(-1)
-            batched_dir_labels = anchor_target_dict['batched_dir_labels'].reshape(-1)
-            # batched_dir_labels_weights = anchor_target_dict['batched_dir_labels_weights'].reshape(-1)
-            
-            pos_idx = (batched_bbox_labels >= 0) & (batched_bbox_labels < args.nclasses)
-            bbox_pred = bbox_pred[pos_idx]
-            batched_bbox_reg = batched_bbox_reg[pos_idx]
-            # sin(a - b) = sin(a)*cos(b) - cos(a)*sin(b)
-            bbox_pred[:, -1] = torch.sin(bbox_pred[:, -1].clone()) * torch.cos(batched_bbox_reg[:, -1].clone())
-            batched_bbox_reg[:, -1] = torch.cos(bbox_pred[:, -1].clone()) * torch.sin(batched_bbox_reg[:, -1].clone())
-            bbox_dir_cls_pred = bbox_dir_cls_pred[pos_idx]
-            batched_dir_labels = batched_dir_labels[pos_idx]
+                batched_bbox_labels = anchor_target_dict['batched_labels'].reshape(-1)
+                batched_label_weights = anchor_target_dict['batched_label_weights'].reshape(-1)
+                batched_bbox_reg = anchor_target_dict['batched_bbox_reg'].reshape(-1, 7)
+                # batched_bbox_reg_weights = anchor_target_dict['batched_bbox_reg_weights'].reshape(-1)
+                batched_dir_labels = anchor_target_dict['batched_dir_labels'].reshape(-1)
+                # batched_dir_labels_weights = anchor_target_dict['batched_dir_labels_weights'].reshape(-1)
+                
+                pos_idx = (batched_bbox_labels >= 0) & (batched_bbox_labels < args.nclasses)
+                bbox_pred = bbox_pred[pos_idx]
+                batched_bbox_reg = batched_bbox_reg[pos_idx]
+                # sin(a - b) = sin(a)*cos(b) - cos(a)*sin(b)
+                bbox_pred[:, -1] = torch.sin(bbox_pred[:, -1].clone()) * torch.cos(batched_bbox_reg[:, -1].clone())
+                batched_bbox_reg[:, -1] = torch.cos(bbox_pred[:, -1].clone()) * torch.sin(batched_bbox_reg[:, -1].clone())
+                bbox_dir_cls_pred = bbox_dir_cls_pred[pos_idx]
+                batched_dir_labels = batched_dir_labels[pos_idx]
 
-            num_cls_pos = (batched_bbox_labels < args.nclasses).sum()
-            bbox_cls_pred = bbox_cls_pred[batched_label_weights > 0]
-            batched_bbox_labels[batched_bbox_labels < 0] = args.nclasses
-            batched_bbox_labels = batched_bbox_labels[batched_label_weights > 0]
+                num_cls_pos = (batched_bbox_labels < args.nclasses).sum()
+                bbox_cls_pred = bbox_cls_pred[batched_label_weights > 0]
+                batched_bbox_labels[batched_bbox_labels < 0] = args.nclasses
+                batched_bbox_labels = batched_bbox_labels[batched_label_weights > 0]
 
-            loss_dict = loss_func(bbox_cls_pred=bbox_cls_pred,
-                                  bbox_pred=bbox_pred,
-                                  bbox_dir_cls_pred=bbox_dir_cls_pred,
-                                  batched_labels=batched_bbox_labels, 
-                                  num_cls_pos=num_cls_pos, 
-                                  batched_bbox_reg=batched_bbox_reg, 
-                                  batched_dir_labels=batched_dir_labels)
-            
-            loss = loss_dict['total_loss']
-            loss.backward()
-            # torch.nn.utils.clip_grad_norm_(pointpillars.parameters(), max_norm=35)
-            optimizer.step()
-            scheduler.step()
+                loss_dict = loss_func(bbox_cls_pred=bbox_cls_pred,
+                                    bbox_pred=bbox_pred,
+                                    bbox_dir_cls_pred=bbox_dir_cls_pred,
+                                    batched_labels=batched_bbox_labels, 
+                                    num_cls_pos=num_cls_pos, 
+                                    batched_bbox_reg=batched_bbox_reg, 
+                                    batched_dir_labels=batched_dir_labels)
+                
+                loss = loss_dict['total_loss']
+                loss.backward()
+                # torch.nn.utils.clip_grad_norm_(pointpillars.parameters(), max_norm=35)
+                optimizer.step()
 
-            global_step = epoch * len(train_dataloader) + train_step + 1
+                global_step = epoch * len(train_dataloader) + train_step + 1
 
-            if global_step % args.log_freq == 0 and rank == 0:
-                save_summary(writer, loss_dict, global_step, 'train',
-                             lr=optimizer.param_groups[0]['lr'], 
-                             momentum=optimizer.param_groups[0]['betas'][0])
-            train_step += 1
+                if global_step % args.log_freq == 0 and rank == 0:
+                    save_summary(writer, loss_dict, global_step, 'train',
+                                lr=optimizer.param_groups[0]['lr'], 
+                                momentum=optimizer.param_groups[0]['betas'][0])
+                train_step += 1
+                pbar.update(1)
+                pbar.set_postfix({
+                    'loss': loss.item(),
+                    'lr': scheduler.get_lr()
+                    })
+        scheduler.step()
         if (epoch + 1) % args.ckpt_freq_epoch == 0 and rank == 0:
             checkpoint = {"epoch": epoch,
                 "model_state_dict": pointpillars.module.state_dict(),
