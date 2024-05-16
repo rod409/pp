@@ -103,11 +103,11 @@ class Waymo(Dataset):
         pts_path = os.path.join(self.data_root, velodyne_path)
         if self.cam_sync:
             annos_info = data_info['cam_sync_annos']
-            if self.painted and not self.inference:
-                pts = read_points(pts_path, 11)
-            else:
-                pts = read_points(pts_path, 11)
-                pts = pts[:,:5]
+        if self.painted and not self.inference:
+            pts = read_points(pts_path, 11)
+        elif self.cam_sync:
+            pts = read_points(pts_path, 11)
+            pts = pts[:,:5]
         else:
             pts = read_points(pts_path, 6)
             pts = pts[:,:5]

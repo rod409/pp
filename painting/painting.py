@@ -49,6 +49,7 @@ class Painter:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.to(device)
         self.model = model
+        self.cam_sync = args.cam_sync
 
         
     def get_lidar(self, idx):
@@ -133,7 +134,7 @@ class Painter:
 
         true_where_x_on_img = (0 < points_projected_on_mask[:, 0]) & (points_projected_on_mask[:, 0] < class_scores[camera_num].shape[1]) #x in img coords is cols of img
         true_where_y_on_img = (0 < points_projected_on_mask[:, 1]) & (points_projected_on_mask[:, 1] < class_scores[camera_num].shape[0])
-        true_where_point_on_img = true_where_x_on_img & true_where_y_on_img
+        true_where_point_on_img = true_where_x_on_img & true_where_y_on_img & (lidar_cam_points[:, 2] > 0)
 
         points_projected_on_mask = points_projected_on_mask[true_where_point_on_img] # filter out points that don't project to image
         points_projected_on_mask = torch.floor(points_projected_on_mask).int() # using floor so you don't end up indexing num_rows+1th row or col
@@ -194,7 +195,8 @@ class Painter:
         augmented_lidar[true_where_point_on_both_0_2, -class_scores[0].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_0_2, -class_scores[0].shape[2]:]
         augmented_lidar[true_where_point_on_both_1_3, -class_scores[1].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_1_3, -class_scores[1].shape[2]:]
         augmented_lidar[true_where_point_on_both_2_4, -class_scores[2].shape[2]:] = 0.5 * augmented_lidar[true_where_point_on_both_2_4, -class_scores[2].shape[2]:]
-        augmented_lidar = augmented_lidar[true_where_point_on_img]
+        if self.cam_sync:
+            augmented_lidar = augmented_lidar[true_where_point_on_img]
 
         return augmented_lidar
 
@@ -228,6 +230,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Configuration Parameters')
     parser.add_argument('--training_path', help='your data root for the training data', required=True)
     parser.add_argument('--model_path', help='path to segmentation model', required=True)
+    parser.add_argument('--cam_sync', action='store_true', help='only use objects visible to a camera')
     args = parser.parse_args()
     painter = Painter(args)
     painter.run()

@@ -553,7 +553,7 @@ def iou_bev(bboxes1, bboxes2):
     return bev_overlap
 
 
-def keep_bbox_from_image_range(result, calib_info, num_images, image_info):
+def keep_bbox_from_image_range(result, calib_info, num_images, image_info, cam_sync=False):
     r0_rect = calib_info['R0_rect']
     lidar_bboxes = result['lidar_bboxes']
     labels = result['labels']
@@ -574,22 +574,24 @@ def keep_bbox_from_image_range(result, calib_info, num_images, image_info):
         image_x2y2 = torch.minimum(image_x2y2, torch.tensor([w, h]))
         bboxes2d = torch.cat([image_x1y1, image_x2y2], axis=-1)
 
-        keep_flag = (image_x1y1[:, 0] < w) & (image_x1y1[:, 1] < h) & (image_x2y2[:, 0] > 0) & (image_x2y2[:, 1] > 0)
+        keep_flag = (image_x1y1[:, 0] < w) & (image_x1y1[:, 1] < h) & (image_x2y2[:, 0] > 0) & (image_x2y2[:, 1] > 0) & (camera_bboxes[:, 2] > 0)
         total_keep_flag = total_keep_flag | keep_flag
-    '''result = {
-        'lidar_bboxes': lidar_bboxes[total_keep_flag],
-        'labels': labels[total_keep_flag],
-        'scores': scores[total_keep_flag],
-        'bboxes2d': bboxes2d[total_keep_flag],
-        'camera_bboxes': main_camera_bboxes[total_keep_flag]
-    }'''
-    result =  {
-        'lidar_bboxes': lidar_bboxes,
-        'labels': labels,
-        'scores': scores,
-        'bboxes2d': bboxes2d,
-        'camera_bboxes': main_camera_bboxes
-    }
+    if cam_sync:
+        result = {
+            'lidar_bboxes': lidar_bboxes[total_keep_flag],
+            'labels': labels[total_keep_flag],
+            'scores': scores[total_keep_flag],
+            'bboxes2d': bboxes2d[total_keep_flag],
+            'camera_bboxes': main_camera_bboxes[total_keep_flag]
+        }
+    else:
+        result =  {
+            'lidar_bboxes': lidar_bboxes,
+            'labels': labels,
+            'scores': scores,
+            'bboxes2d': bboxes2d,
+            'camera_bboxes': main_camera_bboxes
+        }
     return result
 
 

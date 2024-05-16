@@ -68,6 +68,7 @@ def main(rank, args, world_size):
         if rank == 0:
             print('=' * 20, epoch, '=' * 20)
         train_step = 0
+        ave_loss = 0
         with tqdm(total=len(train_dataloader), disable=rank != 0) as pbar:
             for i, data_dict in enumerate(train_dataloader):
                 if not args.no_cuda:
@@ -135,9 +136,10 @@ def main(rank, args, world_size):
                                 momentum=optimizer.param_groups[0]['betas'][0])
                 train_step += 1
                 pbar.update(1)
+                ave_loss += loss.item()
                 pbar.set_postfix({
-                    'loss': loss.item(),
-                    'lr': scheduler.get_lr()
+                    'Avg. loss': ave_loss/(i+1),
+                    'lr': scheduler.get_last_lr()
                     })
         scheduler.step()
         if (epoch + 1) % args.ckpt_freq_epoch == 0 and rank == 0:

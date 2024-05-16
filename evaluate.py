@@ -44,7 +44,7 @@ def convert_calib(calib, cuda):
         result['Tr_velo_to_cam_' + str(i)] = torch.from_numpy(calib['Tr_velo_to_cam_' + str(i)]).to(device=device, dtype=torch.float)
     return result
 
-def do_eval(det_results, gt_results, CLASSES, saved_path):
+def do_eval(det_results, gt_results, CLASSES, saved_path, cam_sync=False):
     '''
     det_results: list,
     gt_results: dict(id -> det_results)
@@ -60,8 +60,12 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
         'bbox_3d': []
     }
     #ids = list(sorted([g['image']['image_idx'] for g in gt_results]))
+    if cam_sync:
+        annos_label = 'cam_sync_annos'
+    else:
+        annos_label = 'annos'
     for id in range(len(gt_results)):
-        gt_result = gt_results[id]['annos']
+        gt_result = gt_results[id][annos_label]
         det_result = det_results[gt_results[id]['image']['image_idx']]
         # 1.1, 2d bboxes iou
         gt_bboxes2d = gt_result['bbox'].astype(np.float32)
@@ -93,7 +97,7 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
         'Cyclist': [0.5, 0.5, 0.5],
         'Car': [0.7, 0.7, 0.7]
     }
-    MIN_HEIGHT = [40, 25, 25]
+    MIN_HEIGHT = [-1, -1, -1]
 
     overall_results = {}
     for e_ind, eval_type in enumerate(['bbox_2d', 'bbox_bev', 'bbox_3d']):
@@ -108,7 +112,7 @@ def do_eval(det_results, gt_results, CLASSES, saved_path):
                 total_gt_ignores, total_det_ignores, total_dc_bboxes, total_scores = [], [], [], []
                 total_gt_alpha, total_det_alpha = [], []
                 for id in range(len(gt_results)):
-                    gt_result = gt_results[id]['annos']
+                    gt_result = gt_results[id][annos_label]
                     det_result = det_results[gt_results[id]['image']['image_idx']]
                     
                     # 1.1 gt bbox property
@@ -354,7 +358,7 @@ def main(args):
                 calib_info = data_dict['batched_calib_info'][j]
                 image_info = data_dict['batched_img_info'][j]
                 idx = data_dict['batched_img_info'][j]['image_idx']
-                result_filter = keep_bbox_from_image_range(result, calib_info, 1, image_info)
+                result_filter = keep_bbox_from_image_range(result, calib_info, 5, image_info, args.cam_sync)
                 #result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
 
                 lidar_bboxes = result_filter['lidar_bboxes']
@@ -382,7 +386,7 @@ def main(args):
         write_pickle(format_results, os.path.join(saved_path, 'results.pkl'))
     
     print('Evaluating.. Please wait several seconds.')
-    do_eval(format_results, val_dataset.data_infos, CLASSES, saved_path)
+    do_eval(format_results, val_dataset.data_infos, CLASSES, saved_path, cam_sync=args.cam_sync)
 
 
 if __name__ == '__main__':

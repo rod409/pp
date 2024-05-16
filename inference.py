@@ -57,8 +57,8 @@ def main(args):
         model = PointPillars(nclasses=args.nclasses, painted=args.painted)
         checkpoint = torch.load(args.lidar_detector, map_location=torch.device('cpu'))
         model.load_state_dict(checkpoint["model_state_dict"])
-    PaintArgs = namedtuple('PaintArgs', ['training_path', 'model_path'])
-    painting_args = PaintArgs(os.path.join(args.data_root, 'training'), args.segmentor)
+    PaintArgs = namedtuple('PaintArgs', ['training_path', 'model_path', 'cam_sync'])
+    painting_args = PaintArgs(os.path.join(args.data_root, 'training'), args.segmentor, args.cam_sync)
     painter = Painter(painting_args)
     deeplab = painter.model
     saved_path = args.saved_path
@@ -122,7 +122,7 @@ def main(args):
                 idx = data_dict['batched_img_info'][j]['image_idx']
                 
                 calib_info = change_calib_device(calib_info, False)
-                result_filter = keep_bbox_from_image_range(result, calib_info, 1, image_info)
+                result_filter = keep_bbox_from_image_range(result, calib_info, 5, image_info, args.cam_sync)
                 #result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
                 
                 lidar_bboxes = result_filter['lidar_bboxes']
@@ -153,7 +153,7 @@ def main(args):
     with open('latency.txt', 'w', newline='') as f:
         f.writelines(latency_results)
     print('Evaluating.. Please wait several seconds.')
-    do_eval(format_results, val_dataset.data_infos, CLASSES, saved_path)
+    do_eval(format_results, val_dataset.data_infos, CLASSES, saved_path, cam_sync=args.cam_sync)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Configuration Parameters')
