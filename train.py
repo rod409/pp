@@ -35,6 +35,7 @@ def main(rank, args, world_size):
 
     if not args.no_cuda:
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted).cuda()
+        pointpillars = torch.nn.SyncBatchNorm.convert_sync_batchnorm(pointpillars)
         pointpillars = DDP(pointpillars, device_ids=[rank], output_device=rank)
     else:
         pointpillars = PointPillars(nclasses=args.nclasses, painted=args.painted)
@@ -45,9 +46,14 @@ def main(rank, args, world_size):
                                   lr=init_lr, 
                                   betas=(0.95, 0.99),
                                   weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,  
-                                                    milestones=[20, 23],
+    warm_up_steps = 1000
+    warm_up_epochs = warm_up_steps//len(train_dataloader)
+    multistep = [x-warm_up_epochs for x in args.multistep]
+    scheduler1 =  torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0/1000, total_iters=warm_up_steps)
+    scheduler2 = torch.optim.lr_scheduler.MultiStepLR(optimizer,  
+                                                    milestones=multistep,
                                                     gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[1000])
     saved_logs_path = os.path.join(args.saved_path, 'summary')
     os.makedirs(saved_logs_path, exist_ok=True)
     writer = SummaryWriter(saved_logs_path)
@@ -62,7 +68,6 @@ def main(rank, args, world_size):
         optimizer.load_state_dict(checkpoint["optimizer"])
     else:
         first_epoch = 0
-
     for epoch in range(first_epoch, args.max_epoch):
         sampler.set_epoch(epoch)
         if rank == 0:
@@ -125,10 +130,12 @@ def main(rank, args, world_size):
                 
                 loss = loss_dict['total_loss']
                 loss.backward()
-                # torch.nn.utils.clip_grad_norm_(pointpillars.parameters(), max_norm=35)
+                torch.nn.utils.clip_grad_norm_(pointpillars.parameters(), max_norm=35, norm_type=2)
                 optimizer.step()
-
                 global_step = epoch * len(train_dataloader) + train_step + 1
+                if global_step <= warm_up_steps:
+                    scheduler.step()
+                
 
                 if global_step % args.log_freq == 0 and rank == 0:
                     save_summary(writer, loss_dict, global_step, 'train',
@@ -141,7 +148,8 @@ def main(rank, args, world_size):
                     'Avg. loss': ave_loss/(i+1),
                     'lr': scheduler.get_last_lr()
                     })
-        scheduler.step()
+        if global_step > warm_up_steps:
+            scheduler.step()
         if (epoch + 1) % args.ckpt_freq_epoch == 0 and rank == 0:
             checkpoint = {"epoch": epoch,
                 "model_state_dict": pointpillars.module.state_dict(),
@@ -170,6 +178,7 @@ if __name__ == '__main__':
     parser.add_argument('--no_cuda', action='store_true',
                         help='whether to use cuda')
     parser.add_argument('--local-rank', default=0, type=int)
+    parser.add_argument("--multistep", nargs="*", type=int, default=[23, 24], help="epochs at which to decay learning rate")
     args = parser.parse_args()
     torch.distributed.init_process_group("nccl", init_method='env://')
     world_size = torch.distributed.get_world_size()

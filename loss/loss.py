@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class Loss(nn.Module):
-    def __init__(self, alpha=0.25, gamma=2.0, beta=1/9, cls_w=1.0, reg_w=2.0, dir_w=0.2):
+    def __init__(self, alpha=0.25, gamma=2.0, beta=1/9, cls_w=1.0, reg_w=1.0, dir_w=0.2):
         super().__init__()
         self.alpha = 0.25
         self.gamma = 2.0
