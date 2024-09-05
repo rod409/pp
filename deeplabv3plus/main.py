@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 
 from torch.utils import data
-from datasets import VOCSegmentation, Cityscapes, Cognata, prepare_cognata, train_val_split, cognata_scenarios
+from datasets import VOCSegmentation, Cityscapes, Waymo, Cognata, prepare_cognata, train_val_split, cognata_scenarios
 from utils import ext_transforms as et
 from metrics import StreamSegMetrics
 
@@ -27,7 +27,7 @@ def get_argparser():
     parser.add_argument("--data_root", type=str, default='./datasets/data',
                         help="path to Dataset")
     parser.add_argument("--dataset", type=str, default='voc',
-                        choices=['voc', 'cityscapes', 'cognata'], help='Name of dataset')
+                        choices=['voc', 'cityscapes', 'cognata', 'waymo'], help='Name of dataset')
     parser.add_argument("--num_classes", type=int, default=None,
                         help="num classes (default: None)")
 
@@ -57,7 +57,7 @@ def get_argparser():
                         help='crop validation (default: False)')
     parser.add_argument("--batch_size", type=int, default=16,
                         help='batch size (default: 16)')
-    parser.add_argument("--val_batch_size", type=int, default=4,
+    parser.add_argument("--val_batch_size", type=int, default=1,
                         help='batch size for validation (default: 4)')
     parser.add_argument("--crop_size", type=int, default=513)
 
@@ -169,6 +169,28 @@ def get_dataset(opts):
         split = train_val_split(files)
         train_dst = Cognata(split['train'], transform=train_transform)
         val_dst = Cognata(split['val'], transform=val_transform)
+    if opts.dataset == 'waymo':
+        train_transform = et.ExtCompose([
+            # et.ExtResize( 512 ),
+            et.ExtRandomCrop(size=(opts.crop_size, opts.crop_size)),
+            et.ExtColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+            et.ExtRandomHorizontalFlip(),
+            et.ExtToTensor(),
+            et.ExtNormalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225]),
+        ])
+
+        val_transform = et.ExtCompose([
+            # et.ExtResize( 512 ),
+            et.ExtToTensor(),
+            et.ExtNormalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225]),
+        ])
+
+        train_dst = Waymo(root=opts.data_root,
+                            split='training', transform=train_transform)
+        val_dst = Waymo(root=opts.data_root,
+                            split='validation', transform=val_transform)
     return train_dst, val_dst
 
 
@@ -231,7 +253,7 @@ def main():
     opts = get_argparser().parse_args()
     if opts.dataset.lower() == 'voc':
         opts.num_classes = 21
-    elif opts.dataset.lower() == 'cityscapes' or opts.dataset.lower() == 'cognata':
+    elif opts.dataset.lower() == 'cityscapes' or opts.dataset.lower() == 'cognata' or opts.dataset.lower() == 'waymo':
         opts.num_classes = 19
 
     # Setup visualization
