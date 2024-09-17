@@ -23,6 +23,7 @@ from waymo_open_dataset.protos import camera_segmentation_metrics_pb2 as metrics
 from waymo_open_dataset.protos import camera_segmentation_submission_pb2 as submission_pb2
 #from waymo_open_dataset.wdl_limited.camera_segmentation import camera_segmentation_metrics
 from waymo_open_dataset.utils import camera_segmentation_utils
+from PIL import Image
 
 class WaymoSegment(object):
     def __init__(self, load_dir, save_dir, workers=64, prefix=0):
@@ -36,10 +37,15 @@ class WaymoSegment(object):
 
 
     def save_semantic_label(self, file_idx, frame_idx, label, camera_id):
-        label_path = f'{self.save_dir}/cam_{str(camera_id)}/' + \
+        '''label_path = f'{self.save_dir}/cam_{str(camera_id)}/' + \
             f'{self.prefix}{str(file_idx).zfill(3)}' + \
             f'{str(frame_idx).zfill(3)}.npy'
-        np.save(label_path, label)
+        np.save(label_path, label)'''
+        img = Image.fromarray(np.array(label, dtype=np.uint8).reshape(label.shape[0], label.shape[1]))
+        img_path = f'{self.save_dir}/cam_{str(camera_id)}/' + \
+            f'{self.prefix}{str(file_idx).zfill(3)}' + \
+            f'{str(frame_idx).zfill(3)}.png'
+        img.save(img_path)
 
     def convert_one(self, file_idx):
         dataset = tf.data.TFRecordDataset(self.tfrecord_pathnames[file_idx], compression_type='')

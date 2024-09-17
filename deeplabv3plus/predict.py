@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 
 from torch.utils import data
-from datasets import VOCSegmentation, Cityscapes, cityscapes
+from datasets import VOCSegmentation, Cityscapes, cityscapes, Cognata, Waymo
 from torchvision import transforms as T
 from metrics import StreamSegMetrics
 
@@ -27,7 +27,7 @@ def get_argparser():
     parser.add_argument("--input", type=str, required=True,
                         help="path to a single image or image directory")
     parser.add_argument("--dataset", type=str, default='voc',
-                        choices=['voc', 'cityscapes'], help='Name of training set')
+                        choices=['voc', 'cityscapes', 'cognata', 'waymo'], help='Name of training set')
 
     # Deeplab Options
     available_models = sorted(name for name in network.modeling.__dict__ if name.islower() and \
@@ -66,6 +66,12 @@ def main():
     elif opts.dataset.lower() == 'cityscapes':
         opts.num_classes = 19
         decode_fn = Cityscapes.decode_target
+    elif opts.dataset.lower() == 'cognata':
+        opts.num_classes = 19
+        decode_fn = Cognata.decode_target
+    elif opts.dataset.lower() == 'waymo':
+        opts.num_classes = 19
+        decode_fn = Waymo.decode_target
 
     os.environ['CUDA_VISIBLE_DEVICES'] = opts.gpu_id
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

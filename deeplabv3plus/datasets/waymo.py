@@ -16,9 +16,9 @@ class Waymo(data.Dataset):
     classes = [
         WaymoClass('unlabeled',            0, 255, 'void', 0, False, True, (0, 0, 0)),
         WaymoClass('ego vehicle',          1, 255, 'void', 0, False, True, (0, 0, 0)),
-        WaymoClass('car',                  2, 13, 'void', 0, False, True, (0, 0, 0)),
-        WaymoClass('truck',                3, 14, 'void', 0, False, True, (0, 0, 0)),
-        WaymoClass('bus',                  4, 15, 'void', 0, False, True, (0, 0, 0)),
+        WaymoClass('car',                  2, 13, 'void', 0, False, True, (102, 102, 156)),
+        WaymoClass('truck',                3, 14, 'void', 0, False, True, (180, 165, 180)),
+        WaymoClass('bus',                  4, 15, 'void', 0, False, True, (150, 120, 90)),
         WaymoClass('large_vehicle',        5, 14, 'void', 0, False, True, (111, 74, 0)),
         WaymoClass('bicycle',              6, 18, 'void', 0, False, True, (81, 0, 81)),
         WaymoClass('motorcycle',           7, 17, 'flat', 1, False, False, (128, 64, 128)),
@@ -26,10 +26,10 @@ class Waymo(data.Dataset):
         WaymoClass('pedestrian',           9, 11, 'flat', 1, False, True, (250, 170, 160)),
         WaymoClass('cyclist',              10, 12, 'flat', 1, False, True, (230, 150, 140)),
         WaymoClass('motorcyclist',         11, 12, 'construction', 2, False, False, (70, 70, 70)),
-        WaymoClass('bird',                 12, 255, 'construction', 2, False, False, (102, 102, 156)),
+        WaymoClass('bird',                 12, 255, 'construction', 2, False, False, (0, 0, 0)),
         WaymoClass('ground_animal',        13, 16, 'construction', 2, False, False, (190, 153, 153)),
-        WaymoClass('construction_cone',    14, 255, 'construction', 2, False, True, (180, 165, 180)),
-        WaymoClass('pole',                 15, 5, 'construction', 2, False, True, (150, 100, 100)),
+        WaymoClass('construction_cone',    14, 255, 'construction', 2, False, True, (0, 0, 0)),
+        WaymoClass('pole',                 15, 5, 'construction', 2, False, True, (0, 0, 0)),
         WaymoClass('pedestrian_object',    16, 255, 'construction', 2, False, True, (150, 120, 90)),
         WaymoClass('sign',                 17, 7, 'object', 3, False, False, (153, 153, 153)),
         WaymoClass('traffic_light',        18, 6, 'object', 3, False, True, (153, 153, 153)),
@@ -75,9 +75,10 @@ class Waymo(data.Dataset):
             target_dir = os.path.join(self.targets_dir, 'cam_' + str(cam))
 
             for file_name in os.listdir(target_dir):
-                self.targets.append(os.path.join(target_dir, file_name))
-                img_name = '{}.{}'.format(file_name.split('.')[0], 'jpg')
-                self.images.append(os.path.join(img_dir, img_name))
+                if file_name.endswith('.png'):
+                    self.targets.append(os.path.join(target_dir, file_name))
+                    img_name = '{}.{}'.format(file_name.split('.')[0], 'jpg')
+                    self.images.append(os.path.join(img_dir, img_name))
 
     @classmethod
     def encode_target(cls, target):
@@ -98,8 +99,7 @@ class Waymo(data.Dataset):
             than one item. Otherwise target is a json object if target_type="polygon", else the image segmentation.
         """
         image = Image.open(self.images[index]).convert('RGB')
-        target = np.load(self.targets[index])
-        target = Image.fromarray(target.reshape((target.shape[0], target.shape[1])), 'L')
+        target = Image.open(self.targets[index])
         if self.transform:
             image, target = self.transform(image, target)
         target = self.encode_target(target)

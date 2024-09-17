@@ -77,6 +77,7 @@ def get_argparser():
                         help="print interval of loss (default: 10)")
     parser.add_argument("--val_interval", type=int, default=100,
                         help="epoch interval for eval (default: 100)")
+    parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument("--download", action='store_true', default=False,
                         help="download datasets")
 
@@ -277,10 +278,10 @@ def main():
 
     train_dst, val_dst = get_dataset(opts)
     train_loader = data.DataLoader(
-        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2,
+        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=opts.num_workers,
         drop_last=True)  # drop_last=True to ignore single-image batches.
     val_loader = data.DataLoader(
-        val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2)
+        val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=opts.num_workers)
     print("Dataset: %s, Train set: %d, Val set: %d" %
           (opts.dataset, len(train_dst), len(val_dst)))
 
