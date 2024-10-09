@@ -1,5 +1,20 @@
 # DeepLabv3Plus-Pytorch
 
+## Training on the waymo open dataset
+
+Prepare waymo dataset for semantic segmentation.
+
+```
+cd pp/data_prep
+python waymo_segment.py --num_workers <num> --waymo_root <path to waymo dataset>
+```
+
+Train the model
+```
+cd pp/deeplabv3plus
+python main.py --model deeplabv3plus_resnet50 --gpu_id <ids> --dataset waymo --crop_val --lr 0.01 --crop_size 513 --batch_size 16 --output_stride 16
+```
+
 Pretrained DeepLabv3, DeepLabv3+ for Pascal VOC & Cityscapes.
 
 ## Quick Start 
