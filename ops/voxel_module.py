@@ -2,7 +2,7 @@
 
 import torch
 import torch.nn as nn
-from .voxel_op import hard_voxelize
+#from .voxel_op import hard_voxelize
 import numpy as np
 import numba
 

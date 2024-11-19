@@ -3,8 +3,8 @@ import numba
 import numpy as np
 import random
 import torch
-import pdb
 from ops.iou3d_module import boxes_overlap_bev, boxes_iou_bev
+from utils.iou_3d import rotated_box_iou
 
 
 def setup_seed(seed=0, deterministic = True):
@@ -484,7 +484,7 @@ def iou3d(bboxes1, bboxes2):
     bboxes2_x2y2 = bboxes2[:, :2] + bboxes2[:, 3:5] / 2
     bboxes1_bev = torch.cat([bboxes1_x1y1, bboxes1_x2y2, bboxes1[:, 6:]], dim=-1)
     bboxes2_bev = torch.cat([bboxes2_x1y1, bboxes2_x2y2, bboxes2[:, 6:]], dim=-1)
-    bev_overlap = boxes_overlap_bev(bboxes1_bev, bboxes2_bev) # (n, m)
+    bev_overlap = rotated_box_iou(bboxes1_bev, bboxes2_bev) # (n, m)
 
     # 3. overlap and volume
     overlap = height_overlap * bev_overlap
@@ -522,7 +522,7 @@ def iou3d_camera(bboxes1, bboxes2):
     bboxes2_x2y2 = bboxes2[:, [0, 2]] + bboxes2[:, [3, 5]] / 2
     bboxes1_bev = torch.cat([bboxes1_x1y1, bboxes1_x2y2, bboxes1[:, 6:]], dim=-1)
     bboxes2_bev = torch.cat([bboxes2_x1y1, bboxes2_x2y2, bboxes2[:, 6:]], dim=-1)
-    bev_overlap = boxes_overlap_bev(bboxes1_bev, bboxes2_bev) # (n, m)
+    bev_overlap = (rotated_box_iou(bboxes1_bev, bboxes2_bev)).to(device=height_overlap.device) # (n, m)
 
     # 3. overlap and volume
     overlap = height_overlap * bev_overlap
