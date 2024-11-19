@@ -5,6 +5,7 @@ from model.anchors import Anchors, anchor_target, anchors2bboxes
 from ops import Voxelization, nms_cuda
 from utils import limit_period
 import math
+import open3d.ml.torch as ml3d
 
 class PillarLayer(nn.Module):
     def __init__(self, voxel_size, point_cloud_range, max_num_points, max_voxels):
@@ -320,12 +321,7 @@ class PointPillars(nn.Module):
             cur_bbox_dir_cls_pred = bbox_dir_cls_pred[score_inds]
             
             # 3.2 nms core
-            keep_inds = nms_cuda(boxes=cur_bbox_pred2d, 
-                                 scores=cur_bbox_cls_pred, 
-                                 thresh=self.nms_thr, 
-                                 pre_maxsize=None, 
-                                 post_max_size=None)
-
+            keep_inds = ml3d.ops.nms(cur_bbox_pred2d.detach().cpu(), cur_bbox_cls_pred.detach().cpu(), self.nms_thr)
             cur_bbox_cls_pred = cur_bbox_cls_pred[keep_inds]
             cur_bbox_pred = cur_bbox_pred[keep_inds]
             cur_bbox_dir_cls_pred = cur_bbox_dir_cls_pred[keep_inds]
