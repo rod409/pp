@@ -9,6 +9,8 @@ from tqdm import tqdm
 sys.path.append('..')
 import deeplabv3plus.network as network
 import argparse
+import onnx
+import onnxruntime as ort
 #fix segmentation network
 
 def get_calib_from_file(calib_file):
@@ -31,10 +33,14 @@ def get_calib_from_file(calib_file):
 
     return data
 
+def to_numpy(tensor):
+    return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
+
 class Painter:
-    def __init__(self, args):
+    def __init__(self, args, onnx=False):
         self.root_split_path = args.training_path
         self.save_path = os.path.join(args.training_path, "painted_lidar/")
+        self.onnx = onnx
         if not os.path.exists(self.save_path):
             os.mkdir(self.save_path)
 
@@ -42,12 +48,16 @@ class Painter:
         self.model = None
         print(f'Using Segmentation Network -- deeplabv3plus')
         checkpoint_file = args.model_path
-        model = network.modeling.__dict__['deeplabv3plus_resnet50'](num_classes=19, output_stride=16)
-        checkpoint = torch.load(checkpoint_file)
-        model.load_state_dict(checkpoint["model_state"])
-        model.eval()
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model.to(device)
+        if self.onnx:
+            model = ort.InferenceSession(checkpoint_file)
+            self.input_image_name = model.get_inputs()[0].name
+        else:
+            model = network.modeling.__dict__['deeplabv3plus_resnet50'](num_classes=19, output_stride=16)
+            checkpoint = torch.load(checkpoint_file)
+            model.load_state_dict(checkpoint["model_state"])
+            model.eval()
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            model.to(device)
         self.model = model
         self.cam_sync = args.cam_sync
 
@@ -74,8 +84,13 @@ class Painter:
         return input_batch
     
     def get_model_output(self, input_batch):
-        with torch.no_grad():
-            output = self.model(input_batch)[0]
+        if self.onnx:
+            input_data = {self.input_image_name: to_numpy(input_batch)}
+            output = self.model.run(None, input_data)
+            output = [torch.from_numpy(item) for item in output]
+        else:
+            with torch.no_grad():
+                output = self.model(input_batch)[0]
         return output
 
     def get_score(self, model_output):
