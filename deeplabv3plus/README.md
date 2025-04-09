@@ -1,5 +1,18 @@
 # DeepLabv3Plus-Pytorch
 
+## Preparing Cognata dataset
+
+Build the docker file for the pp repo and run with the cognata dataset mounted to the container.
+```
+docker build -t pp .
+docker run pp -it -v <path to cognata>:/cognata -v <path to pp repo>:/pp
+```
+Run the setup script to make the segmentation labels for the cognata dataset
+```
+cd /pp/deeplabc3plus/datasets
+python cognata_setup.py --cognata-path /cognata --workers <num workers>
+```
+
 ## Training on the waymo open dataset
 
 Prepare waymo dataset for semantic segmentation.
